@@ -1,4 +1,4 @@
-import { Zap, Trophy, RotateCcw, SkipForward, Loader } from "lucide-react";
+import { Trophy, RotateCcw, SkipForward } from "lucide-react";
 import { useGame } from "@/context/GameContext";
 import { Toast } from "@/components/Toast";
 
@@ -14,18 +14,14 @@ export function GameView() {
     phase,
     curTeam,
     curPlayer,
-    input,
-    setInput,
     faceoffWin,
-    setFaceoffWin,
-    setCurTeam,
-    setFaceoffFirstBuzzer,
+    faceoffFirstBuzzer,
+    faceoffPlayerIndex,
+    questionRevealed,
     feedback,
     toast,
-    checking,
     faceoffBothMissed,
-    checkAnswer,
-    handlePlayOrPass,
+    setView,
     resetCurrentRound,
     resetGame,
     advanceRound,
@@ -93,6 +89,12 @@ export function GameView() {
               איפוס סיבוב
             </button>
             <button
+              onClick={() => setView("host")}
+              className="bg-amber-500 text-slate-900 px-4 py-2 rounded-lg font-bold hover:bg-amber-400 text-sm"
+            >
+              מסך מנחה
+            </button>
+            <button
               onClick={resetGame}
               className="bg-white text-blue-900 px-4 py-2 rounded-lg font-bold hover:bg-gray-100 text-sm"
             >
@@ -117,168 +119,106 @@ export function GameView() {
             >
               {roundLabel}
             </div>
-            <h2 className="text-2xl font-bold text-blue-900 text-right flex-1 mr-3">
-              {curQ.question}
-            </h2>
+            {questionRevealed ? (
+              <h2 className="text-2xl font-bold text-blue-900 text-right flex-1 mr-3">
+                {curQ.question}
+              </h2>
+            ) : (
+              <div className="flex-1 mr-3 text-slate-400 text-right text-lg">
+                ההמנחה יציג את השאלה
+              </div>
+            )}
           </div>
 
-          <div className="space-y-2 mb-6">
+          <div className="grid grid-cols-2 gap-2 mb-6">
             {curQ.answers.map((a, i) => (
               <div
                 key={i}
-                className={`w-full p-3 rounded-lg font-bold text-lg transition-all duration-500 ${revealed.includes(i) ? "bg-blue-600 text-white" : "bg-gray-800"}`}
+                className={`min-h-[4rem] p-3 rounded-lg font-bold text-lg transition-all duration-500 flex items-center justify-between ${
+                  revealed.includes(i)
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-800"
+                }`}
               >
-                <div className="flex justify-between items-center">
-                  <span className="text-xl">
-                    {revealed.includes(i) ? a.text : ""}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    {revealed.includes(i) && (
-                      <span className="text-yellow-300 text-xl">
-                        {a.points * round}
-                      </span>
-                    )}
-                    <span
-                      className={`text-xl w-8 text-center ${revealed.includes(i) ? "text-white" : "text-gray-600"}`}
-                    >
+                {revealed.includes(i) ? (
+                  <>
+                    <span className="text-xl">{a.text}</span>
+                    <span className="text-yellow-300 text-xl">{a.points}</span>
+                  </>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-white text-white text-xl">
                       {i + 1}
                     </span>
                   </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
 
-          {phase === "faceoff" && !faceoffWin && !feedback && (
-            <div className="bg-yellow-100 border-4 border-yellow-400 rounded-lg p-6 mb-4">
-              <h3 className="text-xl font-bold text-center text-yellow-900 mb-4">
-                פנים מול פנים! מי לוחצ/ת ראשון/ה?
-              </h3>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => {
-                    setFaceoffWin(1);
-                    setCurTeam(1);
-                    setFaceoffFirstBuzzer(1);
-                  }}
-                  className="bg-red-600 text-white px-10 py-6 rounded-lg text-xl font-bold hover:bg-red-700 flex items-center gap-2 transition"
-                >
-                  <Zap size={28} />
-                  קבוצה 1
-                </button>
-                <button
-                  onClick={() => {
-                    setFaceoffWin(2);
-                    setCurTeam(2);
-                    setFaceoffFirstBuzzer(2);
-                  }}
-                  className="bg-blue-600 text-white px-10 py-6 rounded-lg text-xl font-bold hover:bg-blue-700 flex items-center gap-2 transition"
-                >
-                  <Zap size={28} />
-                  קבוצה 2
-                </button>
-              </div>
-            </div>
-          )}
-
-          {((phase === "faceoff" && faceoffWin) ||
-            phase === "play" ||
-            phase === "steal") &&
-            !feedback &&
-            !checking && (
-              <div
-                className={`${phase === "steal" ? "bg-gradient-to-r from-red-100 to-orange-100 border-red-400" : "bg-gradient-to-r from-purple-100 to-pink-100 border-purple-400"} border-4 rounded-lg p-6 mb-4`}
-              >
-                <div className="text-center mb-3">
-                  <h3
-                    className={`text-xl font-bold mb-1 ${phase === "steal" ? "text-red-900" : "text-purple-900"}`}
-                  >
-                    {phase === "faceoff" &&
-                      `קבוצה ${curTeam} - שחקן 1 (פנים מול פנים)`}
-                    {phase === "play" &&
-                      `קבוצה ${curTeam} - שחקן ${curPlayer + 1}`}
-                    {phase === "steal" &&
-                      `🔥 קבוצה ${curTeam} - ניסיון גניבה! 🔥`}
-                  </h3>
-                </div>
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && input.trim() && checkAnswer(input)
-                    }
-                    placeholder="הקלד תשובה כאן..."
-                    className={`flex-1 px-4 py-3 text-lg border-4 rounded-lg text-right ${phase === "steal" ? "border-red-300" : "border-purple-300"}`}
-                    autoFocus
-                  />
-                  <button
-                    onClick={() => input.trim() && checkAnswer(input)}
-                    className={`${phase === "steal" ? "bg-red-600 hover:bg-red-700" : "bg-purple-600 hover:bg-purple-700"} text-white px-6 py-3 rounded-lg text-lg font-bold`}
-                  >
-                    שלח
-                  </button>
-                </div>
-              </div>
-            )}
-
-          {checking && !feedback && (
-            <div className="bg-blue-50 border-4 border-blue-300 rounded-lg p-6 mb-4 text-center">
-              <Loader
-                className="mx-auto text-blue-600 animate-spin mb-2"
-                size={36}
-              />
-              <p className="text-lg text-blue-800 font-bold">בודק תשובה...</p>
-            </div>
-          )}
-
-          {feedback && (
+          {phase !== "roundEnd" && (
             <div
-              className={`${feedback.type === "correct" ? "bg-green-100 border-green-400" : "bg-red-100 border-red-400"} border-4 rounded-lg p-6 mb-4 text-center`}
+              className={`min-h-[8rem] rounded-lg p-6 mb-4 border-4 text-center flex flex-col items-center justify-center ${
+                feedback
+                  ? feedback.type === "correct"
+                    ? "bg-green-100 border-green-400"
+                    : "bg-red-100 border-red-400"
+                  : phase === "faceoff" && !faceoffFirstBuzzer
+                    ? "bg-yellow-100 border-yellow-400"
+                    : phase === "choose"
+                      ? "bg-orange-100 border-orange-400"
+                      : phase === "steal"
+                        ? "bg-red-100 border-red-400"
+                        : "bg-purple-100 border-purple-400"
+              }`}
             >
-              {feedback.type === "correct" ? (
-                <div>
-                  <div className="text-5xl mb-2">✔</div>
-                  <div className="text-2xl font-bold text-green-900 mb-1">
-                    {feedback.answer.text}
-                  </div>
-                  <div className="text-4xl font-bold text-green-600">
-                    {feedback.points} נקודות!
-                  </div>
+              {feedback ? (
+                <div className="w-full">
+                  {feedback.type === "correct" ? (
+                    <>
+                      <div className="text-5xl mb-2">✔</div>
+                      <div className="text-2xl font-bold mb-1">
+                        {feedback.answer.text}
+                      </div>
+                      <div className="text-4xl font-bold text-green-600">
+                        {feedback.points} נקודות!
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-5xl mb-2">✗</div>
+                      <div className="text-2xl font-bold">לא נמצא</div>
+                    </>
+                  )}
                 </div>
-              ) : (
-                <div>
-                  <div className="text-5xl mb-2">✗</div>
-                  <div className="text-2xl font-bold text-red-900">
-                    לא נכון!
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {phase === "choose" && !feedback && (
-            <div className="bg-orange-100 border-4 border-orange-400 rounded-lg p-6 mb-4 text-center">
-              <h3 className="text-xl font-bold text-orange-900 mb-4">
-                {faceoffBothMissed
-                  ? `שתי הקבוצות לא מצאו תשובה! קבוצה ${faceoffWin} לחצה ראשונה — לשחק או להעביר?`
-                  : `קבוצה ${faceoffWin} ניצחה בפנים מול פנים! לשחק או להעביר?`}
-              </h3>
-              <div className="flex gap-3 justify-center">
-                <button
-                  onClick={() => handlePlayOrPass("play")}
-                  className="bg-green-600 text-white px-10 py-4 rounded-lg text-xl font-bold hover:bg-green-700"
+              ) : phase === "faceoff" && !faceoffFirstBuzzer ? (
+                <h3 className="text-xl font-bold text-yellow-900">
+                  פנים מול פנים – המתן לבחירת המנחה
+                </h3>
+              ) : phase === "faceoff" && faceoffFirstBuzzer && !faceoffWin ? (
+                <h3 className="text-xl font-bold text-purple-900">
+                  קבוצה {curTeam} - שחקן {faceoffPlayerIndex + 1} (פנים מול
+                  פנים)
+                </h3>
+              ) : phase === "choose" ? (
+                <h3 className="text-xl font-bold text-orange-900">
+                  קבוצה {faceoffWin} ניצחה בפנים מול פנים!
+                  <br />
+                  <span className="text-lg text-orange-700 font-normal">
+                    המנחה יבחר – לשחק או להעביר
+                  </span>
+                </h3>
+              ) : phase === "play" || phase === "steal" ? (
+                <h3
+                  className={`text-xl font-bold ${phase === "steal" ? "text-red-900" : "text-purple-900"}`}
                 >
-                  לשחק ✓
-                </button>
-                <button
-                  onClick={() => handlePlayOrPass("pass")}
-                  className="bg-orange-600 text-white px-10 py-4 rounded-lg text-xl font-bold hover:bg-orange-700"
-                >
-                  להעביר →
-                </button>
-              </div>
+                  {phase === "play" &&
+                    `קבוצה ${curTeam} - שחקן ${curPlayer + 1}`}
+                  {phase === "steal" &&
+                    ctrl &&
+                    `קבוצה ${ctrl === 1 ? 2 : 1} עכשיו בשליטה - מנסה לגנוב! 🔥`}
+                </h3>
+              ) : null}
             </div>
           )}
 

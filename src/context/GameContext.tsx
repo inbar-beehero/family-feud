@@ -4,15 +4,17 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import type { Question, FastMoneyQuestion, View } from "@/types";
 import { defaultQuestions, defaultFastMoney } from "@/data/questions";
-import { aiMatchAnswer, aiMatchFastMoney } from "@/services/aiMatch";
+import { aiMatchFastMoney } from "@/services/aiMatch";
 import { createBin, readBin, updateBin } from "@/services/jsonbin";
 
 const STORAGE_KEY_API = "family-feud_jsonbin_api";
 const STORAGE_KEY_BIN = "family-feud_jsonbin_bin";
+const STORAGE_KEY_SYNC = "family-feud_sync";
 
 type Phase = "faceoff" | "choose" | "play" | "steal" | "roundEnd";
 
@@ -59,10 +61,14 @@ interface GameContextValue {
     | { type: "wrong" }
     | null;
   toast: { msg: string; type: "ok" | "err" | "info" } | null;
-  checking: boolean;
   faceoffFirstBuzzer: number | null;
   setFaceoffFirstBuzzer: (n: number | null) => void;
+  faceoffPlayerIndex: number;
+  setFaceoffPlayerIndex: (n: number) => void;
   faceoffBothMissed: boolean;
+  faceoffFirstAnswerIdx: number | null;
+  questionRevealed: boolean;
+  revealQuestion: () => void;
   fmPhase: "player1" | "player2" | "reveal";
   fmPlayer: number;
   fmAnswers: Record<string, string>;
@@ -84,7 +90,7 @@ interface GameContextValue {
   resetGame: () => void;
   resetCurrentRound: () => void;
   advanceRound: () => void;
-  checkAnswer: (guess: string) => Promise<void>;
+  hostSelectAnswer: (realIdx: number | null) => void;
   handlePlayOrPass: (d: "play" | "pass") => void;
   handleFmAnswer: () => void;
   startFastMoney: () => void;
@@ -144,11 +150,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     msg: string;
     type: "ok" | "err" | "info";
   } | null>(null);
-  const [checking, setChecking] = useState(false);
   const [faceoffFirstBuzzer, setFaceoffFirstBuzzer] = useState<number | null>(
     null,
   );
+  const [faceoffPlayerIndex, setFaceoffPlayerIndex] = useState(0);
   const [faceoffBothMissed, setFaceoffBothMissed] = useState(false);
+  const [faceoffFirstAnswerIdx, setFaceoffFirstAnswerIdx] = useState<
+    number | null
+  >(null);
+  const [questionRevealed, setQuestionRevealed] = useState(false);
   const [fmPhase, setFmPhase] = useState<"player1" | "player2" | "reveal">(
     "player1",
   );
@@ -169,6 +179,131 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [fmTimer, setFmTimer] = useState(60);
   const [fmActive, setFmActive] = useState(false);
   const [fmCalculating, setFmCalculating] = useState(false);
+  const fromSyncRef = useRef(false);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(STORAGE_KEY_SYNC);
+    if (raw) {
+      try {
+        const data = JSON.parse(raw);
+        if (data.curQ !== undefined) setCurQ(data.curQ);
+        if (Array.isArray(data.revealed)) setRevealed(data.revealed);
+        if (data.scores) setScores(data.scores);
+        if (typeof data.strikes === "number") setStrikes(data.strikes);
+        if (typeof data.roundScore === "number") setRoundScore(data.roundScore);
+        if (data.ctrl !== undefined) setCtrl(data.ctrl);
+        if (typeof data.round === "number") setRound(data.round);
+        if (Array.isArray(data.usedIds)) setUsedIds(data.usedIds);
+        if (data.phase) setPhase(data.phase);
+        if (typeof data.curTeam === "number") setCurTeam(data.curTeam);
+        if (typeof data.curPlayer === "number") setCurPlayer(data.curPlayer);
+        if (data.faceoffWin !== undefined) setFaceoffWin(data.faceoffWin);
+        if (data.faceoffFirstBuzzer !== undefined)
+          setFaceoffFirstBuzzer(data.faceoffFirstBuzzer);
+        if (typeof data.faceoffPlayerIndex === "number")
+          setFaceoffPlayerIndex(data.faceoffPlayerIndex);
+        if (typeof data.faceoffBothMissed === "boolean")
+          setFaceoffBothMissed(data.faceoffBothMissed);
+        if (
+          typeof data.faceoffFirstAnswerIdx === "number" ||
+          data.faceoffFirstAnswerIdx === null
+        )
+          setFaceoffFirstAnswerIdx(data.faceoffFirstAnswerIdx);
+        if (typeof data.questionRevealed === "boolean")
+          setQuestionRevealed(data.questionRevealed);
+        if (data.feedback !== undefined) setFeedback(data.feedback ?? null);
+        if (data.view) setView(data.view);
+      } catch (_) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY_SYNC || !e.newValue) return;
+      fromSyncRef.current = true;
+      try {
+        const data = JSON.parse(e.newValue);
+        if (data.curQ !== undefined) setCurQ(data.curQ);
+        if (Array.isArray(data.revealed)) setRevealed(data.revealed);
+        if (data.scores) setScores(data.scores);
+        if (typeof data.strikes === "number") setStrikes(data.strikes);
+        if (typeof data.roundScore === "number") setRoundScore(data.roundScore);
+        if (data.ctrl !== undefined) setCtrl(data.ctrl);
+        if (typeof data.round === "number") setRound(data.round);
+        if (Array.isArray(data.usedIds)) setUsedIds(data.usedIds);
+        if (data.phase) setPhase(data.phase);
+        if (typeof data.curTeam === "number") setCurTeam(data.curTeam);
+        if (typeof data.curPlayer === "number") setCurPlayer(data.curPlayer);
+        if (data.faceoffWin !== undefined) setFaceoffWin(data.faceoffWin);
+        if (data.faceoffFirstBuzzer !== undefined)
+          setFaceoffFirstBuzzer(data.faceoffFirstBuzzer);
+        if (typeof data.faceoffPlayerIndex === "number")
+          setFaceoffPlayerIndex(data.faceoffPlayerIndex);
+        if (typeof data.faceoffBothMissed === "boolean")
+          setFaceoffBothMissed(data.faceoffBothMissed);
+        if (
+          typeof data.faceoffFirstAnswerIdx === "number" ||
+          data.faceoffFirstAnswerIdx === null
+        )
+          setFaceoffFirstAnswerIdx(data.faceoffFirstAnswerIdx);
+        if (typeof data.questionRevealed === "boolean")
+          setQuestionRevealed(data.questionRevealed);
+        if (data.feedback !== undefined) setFeedback(data.feedback ?? null);
+        if (data.view) setView(data.view);
+      } catch (_) {}
+      setTimeout(() => {
+        fromSyncRef.current = false;
+      }, 0);
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
+  useEffect(() => {
+    if (fromSyncRef.current) return;
+    const payload = {
+      curQ,
+      revealed,
+      scores,
+      strikes,
+      roundScore,
+      ctrl,
+      round,
+      usedIds,
+      phase,
+      curTeam,
+      curPlayer,
+      faceoffWin,
+      faceoffFirstBuzzer,
+      faceoffPlayerIndex,
+      faceoffBothMissed,
+      faceoffFirstAnswerIdx,
+      questionRevealed,
+      feedback,
+      view,
+    };
+    localStorage.setItem(STORAGE_KEY_SYNC, JSON.stringify(payload));
+  }, [
+    curQ,
+    revealed,
+    scores,
+    strikes,
+    roundScore,
+    ctrl,
+    round,
+    usedIds,
+    phase,
+    curTeam,
+    curPlayer,
+    faceoffWin,
+    faceoffFirstBuzzer,
+    faceoffPlayerIndex,
+    faceoffBothMissed,
+    faceoffFirstAnswerIdx,
+    questionRevealed,
+    feedback,
+    view,
+  ]);
 
   const show = useCallback(
     (msg: string, type: "ok" | "err" | "info" = "ok") => {
@@ -262,7 +397,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   const beginRound = useCallback(
-    (r: number, excludeIds: number[], questionsList: Question[]) => {
+    (
+      r: number,
+      excludeIds: number[],
+      questionsList: Question[],
+      initialFaceoffPlayerIndex = 0,
+    ) => {
       const q = pickQuestion(questionsList, r, excludeIds);
       if (!q) {
         show(`אין שאלות זמינות לסיבוב ${r}!`, "err");
@@ -281,9 +421,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setCurPlayer(0);
       setInput("");
       setFeedback(null);
-      setChecking(false);
       setFaceoffFirstBuzzer(null);
+      setFaceoffPlayerIndex(initialFaceoffPlayerIndex);
       setFaceoffBothMissed(false);
+      setFaceoffFirstAnswerIdx(null);
+      setQuestionRevealed(false);
       return true;
     },
     [show],
@@ -326,7 +468,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setCurPlayer((p) => (p + 1) % 5);
   }, []);
 
-  const addStrike = useCallback(() => {
+  const revealQuestion = useCallback(() => setQuestionRevealed(true), []);
+
+  const addStrike = useCallback((currentStrikes: number) => {
     setStrikes((ns) => {
       if (ns + 1 >= 3) {
         setTimeout(() => {
@@ -334,33 +478,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setCurTeam((c) => (c === 1 ? 2 : 1));
           setCurPlayer(0);
         }, 1000);
-      } else {
-        setCurPlayer((p) => (p + 1) % 5);
       }
       return ns + 1;
     });
+    if (currentStrikes + 1 < 3) {
+      setCurPlayer((p) => (p + 1) % 5);
+    }
   }, []);
 
-  const checkAnswer = useCallback(
-    async (guess: string) => {
-      if (!guess.trim() || checking || !curQ) return;
-      setChecking(true);
-      setInput("");
+  const hostSelectAnswer = useCallback(
+    (realIdx: number | null) => {
+      if (!curQ) return;
 
-      const availableAnswers = curQ.answers.filter(
-        (_, i) => !revealed.includes(i),
-      );
       const availableIndices = curQ.answers
         .map((_, i) => i)
         .filter((i) => !revealed.includes(i));
-      const matchIdx = await aiMatchAnswer(
-        guess,
-        curQ.question,
-        availableAnswers,
-      );
 
-      if (matchIdx !== -1) {
-        const realIdx = availableIndices[matchIdx];
+      if (realIdx !== null && availableIndices.includes(realIdx)) {
         const pts = curQ.answers[realIdx].points * round;
         const newRevealed = [...revealed, realIdx];
         const newRoundScore = roundScore + pts;
@@ -371,36 +505,58 @@ export function GameProvider({ children }: { children: ReactNode }) {
           answer: curQ.answers[realIdx],
           points: pts,
         });
+        if (phase === "faceoff" && !questionRevealed) setQuestionRevealed(true);
 
         setTimeout(() => {
           setFeedback(null);
-          setChecking(false);
           if (newRevealed.length === curQ.answers.length) {
             const winner = ctrl ?? faceoffWin ?? curTeam;
             awardPoints(winner, newRoundScore);
             return;
           }
-          if (phase === "faceoff") setPhase("choose");
-          else if (phase === "play") nextPlayer();
+          if (phase === "faceoff") {
+            if (curTeam === faceoffFirstBuzzer) {
+              if (realIdx === 0) {
+                setFaceoffWin(curTeam);
+                setPhase("choose");
+              } else {
+                setFaceoffFirstAnswerIdx(realIdx);
+                setCurTeam(faceoffFirstBuzzer === 1 ? 2 : 1);
+              }
+            } else {
+              const firstIdx =
+                faceoffFirstAnswerIdx !== null ? faceoffFirstAnswerIdx : 999;
+              if (realIdx < firstIdx) {
+                setFaceoffWin(curTeam);
+                setPhase("choose");
+              } else {
+                setFaceoffWin(faceoffFirstBuzzer);
+                setPhase("choose");
+              }
+            }
+          } else if (phase === "play") nextPlayer();
           else if (phase === "steal")
             awardPoints(ctrl === 1 ? 2 : 1, newRoundScore);
-        }, 2000);
+        }, 3000);
       } else {
         setFeedback({ type: "wrong" });
+        if (phase === "faceoff" && !questionRevealed) setQuestionRevealed(true);
         setTimeout(() => {
           setFeedback(null);
-          setChecking(false);
           if (phase === "faceoff") {
             if (curTeam !== faceoffFirstBuzzer) {
               setFaceoffBothMissed(true);
               setFaceoffWin(faceoffFirstBuzzer);
-              setPhase("choose");
+              setCtrl(faceoffFirstBuzzer);
+              setCurTeam(faceoffFirstBuzzer);
+              setCurPlayer((faceoffPlayerIndex + 1) % 5);
+              setPhase("play");
             } else {
               setCurTeam(curTeam === 1 ? 2 : 1);
             }
-          } else if (phase === "play") addStrike();
+          } else if (phase === "play") addStrike(strikes);
           else if (phase === "steal") awardPoints(ctrl!, roundScore);
-        }, 1500);
+        }, 3000);
       }
     },
     [
@@ -412,8 +568,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       faceoffWin,
       curTeam,
       phase,
+      strikes,
+      questionRevealed,
       faceoffFirstBuzzer,
-      checking,
+      faceoffFirstAnswerIdx,
+      faceoffPlayerIndex,
       awardPoints,
       nextPlayer,
       addStrike,
@@ -427,7 +586,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (d === "play") {
         setCtrl(win);
         setCurTeam(win);
-        setCurPlayer(1);
+        setCurPlayer((faceoffPlayerIndex + 1) % 5);
       } else {
         setCtrl(other);
         setCurTeam(other);
@@ -435,7 +594,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
       setPhase("play");
     },
-    [faceoffWin],
+    [faceoffWin, faceoffPlayerIndex],
   );
 
   const handleFmAnswer = useCallback(() => {
@@ -473,7 +632,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setRound(1);
     setUsedIds([]);
     setView("start");
-    setChecking(false);
+    localStorage.removeItem(STORAGE_KEY_SYNC);
   }, []);
 
   const resetCurrentRound = useCallback(() => {
@@ -483,7 +642,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const advanceRound = useCallback(() => {
     if (round < 3) {
-      const ok = beginRound(round + 1, usedIds, questions);
+      const nextFaceoff = (faceoffPlayerIndex + 1) % 5;
+      const ok = beginRound(round + 1, usedIds, questions, nextFaceoff);
       if (!ok) show("אין שאלות לסיבוב הבא", "err");
     } else {
       if (fmQuestions.length < 5) {
@@ -502,7 +662,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setFmCalculating(false);
       setView("fastmoney");
     }
-  }, [round, usedIds, questions, fmQuestions.length, beginRound, show]);
+  }, [
+    round,
+    usedIds,
+    questions,
+    fmQuestions.length,
+    faceoffPlayerIndex,
+    beginRound,
+    show,
+  ]);
 
   const startFastMoney = useCallback(() => {
     if (fmQuestions.length < 5) {
@@ -592,10 +760,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setCurTeam,
     feedback,
     toast,
-    checking,
     faceoffFirstBuzzer,
     setFaceoffFirstBuzzer,
+    faceoffPlayerIndex,
+    setFaceoffPlayerIndex,
     faceoffBothMissed,
+    questionRevealed,
+    revealQuestion,
     fmPhase,
     fmPlayer,
     fmAnswers,
@@ -610,7 +781,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     resetGame,
     resetCurrentRound,
     advanceRound,
-    checkAnswer,
+    hostSelectAnswer,
     handlePlayOrPass,
     handleFmAnswer,
     startFastMoney,

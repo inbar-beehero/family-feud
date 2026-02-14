@@ -100,6 +100,14 @@ export function StartScreen() {
           התחל משחק
         </button>
         <div className="mt-8 flex flex-col items-center gap-2">
+          <a
+            href="?host=1"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-amber-500/80 text-slate-900 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-amber-400 transition"
+          >
+            פתח מסך מנחה
+          </a>
           <button
             onClick={() => setView("admin")}
             className="bg-white/20 backdrop-blur text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-white/30 transition"

@@ -16,7 +16,7 @@ export interface FastMoneyQuestion extends Question {
   answers: Answer[];
 }
 
-export type View = "start" | "game" | "admin" | "fastmoney";
+export type View = "start" | "game" | "admin" | "fastmoney" | "host";
 
 export type Phase = "faceoff" | "choose" | "play" | "steal" | "roundEnd";
 
