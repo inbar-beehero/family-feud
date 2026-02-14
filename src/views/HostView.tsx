@@ -26,6 +26,8 @@ export function HostView() {
     startGame,
     advanceRound,
     startFastMoney,
+    fmTimeLimit,
+    setFmTimeLimit,
     fmPhase,
     fmPlayer,
     fmRoundQuestions,
@@ -445,13 +447,29 @@ export function HostView() {
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
           <h1 className="text-2xl font-bold text-amber-300">מסך מנחה</h1>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             <button
               onClick={advanceRound}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-500 text-sm"
             >
               דלג לסיבוב הבא
             </button>
+            <div className="flex items-center gap-2">
+              <span className="text-amber-200 text-sm">מגבלת זמן:</span>
+              {([30, 45, 60] as const).map((sec) => (
+                <button
+                  key={sec}
+                  onClick={() => setFmTimeLimit(sec)}
+                  className={`px-3 py-1 rounded text-sm font-bold ${
+                    fmTimeLimit === sec
+                      ? "bg-amber-500 text-slate-900"
+                      : "bg-slate-600 text-slate-300 hover:bg-slate-500"
+                  }`}
+                >
+                  {sec}s
+                </button>
+              ))}
+            </div>
             <button
               onClick={startFastMoney}
               className="bg-yellow-600 text-slate-900 px-4 py-2 rounded-lg font-semibold hover:bg-yellow-500 text-sm"
@@ -564,13 +582,35 @@ export function HostView() {
               {teamNames.t1 || "קבוצה 1"}: {scores.t1} |{" "}
               {teamNames.t2 || "קבוצה 2"}: {scores.t2}
             </p>
-            <button
-              onClick={advanceRound}
-              className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-bold hover:bg-blue-500 flex items-center gap-2 mx-auto"
-            >
-              <SkipForward size={20} />
-              {round < 3 ? `המשך לסיבוב ${round + 1}` : "המשך לפאסט מאני"}
-            </button>
+            <div className="space-y-3">
+              {round === 3 && (
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-green-200 text-sm">
+                    מגבלת זמן פאסט מאני:
+                  </span>
+                  {([30, 45, 60] as const).map((sec) => (
+                    <button
+                      key={sec}
+                      onClick={() => setFmTimeLimit(sec)}
+                      className={`px-4 py-2 rounded font-bold ${
+                        fmTimeLimit === sec
+                          ? "bg-amber-500 text-slate-900"
+                          : "bg-white/20 text-green-200 hover:bg-white/30"
+                      }`}
+                    >
+                      {sec} שניות
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={advanceRound}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-bold hover:bg-blue-500 flex items-center gap-2 mx-auto"
+              >
+                <SkipForward size={20} />
+                {round < 3 ? `המשך לסיבוב ${round + 1}` : "המשך לפאסט מאני"}
+              </button>
+            </div>
           </div>
         )}
 

@@ -111,6 +111,9 @@ interface GameContextValue {
   fmRevealedIndices: number[];
   fmRevealingQIdx: number | null;
   fmRevealStep: 0 | 1 | 2 | 3;
+  fmTimeLimit: 30 | 45 | 60;
+  setFmTimeLimit: (v: 30 | 45 | 60) => void;
+  fmTimeRemaining: number;
   startFastMoney: () => void;
 }
 
@@ -222,7 +225,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     >
   >({});
   const [fmQIdx, setFmQIdx] = useState(0);
+  const [fmTimeLimit, setFmTimeLimit] = useState<30 | 45 | 60>(45);
+  const [fmTimeRemaining, setFmTimeRemaining] = useState(0);
   const fromSyncRef = useRef(false);
+  const fmPhaseRef = useRef(fmPhase);
+  fmPhaseRef.current = fmPhase;
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY_SYNC);
@@ -295,6 +302,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
           data.fmRevealStep <= 3
         )
           setFmRevealStep(data.fmRevealStep as 0 | 1 | 2 | 3);
+        if (
+          data.fmTimeLimit === 30 ||
+          data.fmTimeLimit === 45 ||
+          data.fmTimeLimit === 60
+        )
+          setFmTimeLimit(data.fmTimeLimit);
+        if (typeof data.fmTimeRemaining === "number")
+          setFmTimeRemaining(data.fmTimeRemaining);
       } catch (_) {}
     }
   }, []);
@@ -371,6 +386,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
           data.fmRevealStep <= 3
         )
           setFmRevealStep(data.fmRevealStep as 0 | 1 | 2 | 3);
+        if (
+          data.fmTimeLimit === 30 ||
+          data.fmTimeLimit === 45 ||
+          data.fmTimeLimit === 60
+        )
+          setFmTimeLimit(data.fmTimeLimit);
+        if (typeof data.fmTimeRemaining === "number")
+          setFmTimeRemaining(data.fmTimeRemaining);
       } catch (_) {}
       setTimeout(() => {
         fromSyncRef.current = false;
@@ -417,6 +440,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       fmRevealedIndices,
       fmRevealingQIdx,
       fmRevealStep,
+      fmTimeLimit,
+      fmTimeRemaining,
     };
     localStorage.setItem(STORAGE_KEY_SYNC, JSON.stringify(payload));
   }, [
@@ -454,6 +479,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     fmRevealedIndices,
     fmRevealingQIdx,
     fmRevealStep,
+    fmTimeLimit,
+    fmTimeRemaining,
   ]);
 
   const show = useCallback(
@@ -859,17 +886,43 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   const hostFmAdvanceToPlayer2 = useCallback(() => {
+    setFmTimeRemaining(fmTimeLimit);
     setFmPlayer(2);
     setFmPhase("player2");
     setFmQIdx(0);
     setFmMatchSelections({});
     setFmSameAnswerError(false);
-  }, []);
+  }, [fmTimeLimit]);
 
   const hostFmSameAnswer = useCallback(() => {
     setFmSameAnswerError(true);
     setTimeout(() => setFmSameAnswerError(false), 3000);
   }, []);
+
+  useEffect(() => {
+    if (fmPhase !== "player1" && fmPhase !== "player2") return;
+    if (fmTimeRemaining <= 0) return;
+    const t = setInterval(() => {
+      setFmTimeRemaining((prev) => {
+        if (prev <= 1) {
+          const p = fmPhaseRef.current;
+          if (p === "player1") {
+            setFmPhase("player1_match");
+            setFmMatchSelections({});
+          } else if (p === "player2") {
+            setFmPhase("reveal");
+            setFmMatchSelections({});
+            setFmRevealedIndices([]);
+            setFmRevealingQIdx(0);
+            setFmRevealStep(0);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [fmPhase, fmTimeRemaining]);
 
   useEffect(() => {
     if (fmPhase !== "reveal" || fmRevealingQIdx === null || fmRevealStep !== 0)
@@ -948,6 +1001,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return;
       }
       setFmRoundQuestions(pickRandomFmQuestions(fmQuestions, 5));
+      setFmTimeRemaining(fmTimeLimit);
       setFmPhase("player1");
       setFmPlayer(1);
       setFmAnswers({});
@@ -966,7 +1020,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     round,
     usedIds,
     questions,
+    fmQuestions,
     fmQuestions.length,
+    fmTimeLimit,
     faceoffPlayerIndex,
     beginRound,
     show,
@@ -978,6 +1034,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return;
     }
     setFmRoundQuestions(pickRandomFmQuestions(fmQuestions, 5));
+    setFmTimeRemaining(fmTimeLimit);
     setFmPhase("player1");
     setFmPlayer(1);
     setFmAnswers({});
@@ -987,7 +1044,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setFmQIdx(0);
     setInput("");
     setView("fastmoney");
-  }, [fmQuestions, fmQuestions.length, show]);
+  }, [fmQuestions, fmQuestions.length, fmTimeLimit, show]);
 
   const setQuestionsWrapper = useCallback(
     (q: Question[] | ((p: Question[]) => Question[])) => {
@@ -1069,6 +1126,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     fmRevealedIndices,
     fmRevealingQIdx,
     fmRevealStep,
+    fmTimeLimit,
+    setFmTimeLimit,
+    fmTimeRemaining,
     show,
     startGame: startGameFixed,
     resetGame,

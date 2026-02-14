@@ -11,6 +11,7 @@ export function FastMoneyView() {
     fmMatchSelections,
     fmPoints,
     fmSameAnswerError,
+    fmTimeRemaining,
   } = useGame();
 
   if (fmPhase === "reveal") {
@@ -104,6 +105,7 @@ export function FastMoneyView() {
   }
 
   const currentPlayer = fmPlayer;
+  const showTimer = fmPhase === "player1" || fmPhase === "player2";
 
   return (
     <div
@@ -111,6 +113,21 @@ export function FastMoneyView() {
       dir="rtl"
     >
       <div className="max-w-3xl mx-auto">
+        {showTimer && (
+          <div className="mb-6 flex justify-center">
+            <div
+              className={`px-8 py-4 rounded-xl text-5xl font-bold ${
+                fmTimeRemaining <= 10
+                  ? "bg-red-600 text-white animate-pulse"
+                  : fmTimeRemaining <= 20
+                    ? "bg-amber-500 text-slate-900"
+                    : "bg-white/90 text-yellow-900"
+              }`}
+            >
+              {fmTimeRemaining}
+            </div>
+          </div>
+        )}
         {fmSameAnswerError && (
           <div className="mb-6 p-6 bg-red-600 text-white rounded-lg text-center text-3xl font-bold animate-pulse">
             תשובה זהה!
