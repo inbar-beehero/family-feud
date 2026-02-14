@@ -44,6 +44,12 @@ export function HostView() {
     fmRevealingQIdx,
     fmRevealStep,
     resetGame,
+    teamNames,
+    teamPlayerCounts,
+    teamPlayerNames,
+    setTeamNames,
+    setTeamPlayerCounts,
+    setTeamPlayerNames,
   } = useGame();
 
   if (view === "fastmoney") {
@@ -295,22 +301,133 @@ export function HostView() {
   }
 
   if (!curQ) {
+    const updateNames = (team: "t1" | "t2", index: number, value: string) => {
+      const current = teamPlayerNames[team] || [];
+      const next = [...current];
+      if (next.length <= index)
+        next.push(...Array(index - next.length + 1).fill(""));
+      next[index] = value;
+      setTeamPlayerNames({ ...teamPlayerNames, [team]: next });
+    };
     return (
       <div
-        className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 p-8 flex flex-col items-center justify-center"
+        className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 p-8"
         dir="rtl"
       >
-        <h1 className="text-4xl font-bold text-amber-300 mb-6">מסך מנחה</h1>
-        <p className="text-slate-300 mb-6">המשחק לא התחיל</p>
-        <button
-          onClick={() => {
-            startGame();
-            setView("host");
-          }}
-          className="bg-amber-500 text-slate-900 px-8 py-3 rounded-lg font-bold hover:bg-amber-400"
-        >
-          התחל משחק
-        </button>
+        <div className="max-w-xl mx-auto">
+          <h1 className="text-4xl font-bold text-amber-300 mb-6 text-center">
+            הגדרת קבוצות
+          </h1>
+          <div className="space-y-6 mb-8">
+            <div className="bg-slate-700/50 rounded-lg p-6">
+              <label className="block text-amber-200 font-bold mb-2">
+                שם קבוצה 1
+              </label>
+              <input
+                type="text"
+                value={teamNames.t1}
+                onChange={(e) =>
+                  setTeamNames({ ...teamNames, t1: e.target.value })
+                }
+                placeholder="קבוצה 1"
+                className="w-full px-4 py-2 rounded-lg bg-slate-800 text-white border border-slate-600"
+              />
+              <label className="block text-amber-200 font-bold mt-4 mb-2">
+                מספר שחקנים (2–5)
+              </label>
+              <input
+                type="number"
+                min={2}
+                max={5}
+                value={teamPlayerCounts.t1}
+                onChange={(e) => {
+                  const v = Math.max(
+                    2,
+                    Math.min(5, parseInt(e.target.value, 10) || 2),
+                  );
+                  setTeamPlayerCounts({ ...teamPlayerCounts, t1: v });
+                  const c = teamPlayerNames.t1 || [];
+                  const next =
+                    c.length < v
+                      ? [...c, ...Array(v - c.length).fill("")]
+                      : c.slice(0, v);
+                  setTeamPlayerNames({ ...teamPlayerNames, t1: next });
+                }}
+                className="w-full px-4 py-2 rounded-lg bg-slate-800 text-white border border-slate-600"
+              />
+              <div className="mt-3 space-y-2">
+                {Array.from({ length: teamPlayerCounts.t1 }, (_, i) => (
+                  <input
+                    key={i}
+                    type="text"
+                    value={teamPlayerNames.t1[i] || ""}
+                    onChange={(e) => updateNames("t1", i, e.target.value)}
+                    placeholder={`שחקן ${i + 1}`}
+                    className="w-full px-4 py-2 rounded-lg bg-slate-800 text-white border border-slate-600 text-sm"
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="bg-slate-700/50 rounded-lg p-6">
+              <label className="block text-amber-200 font-bold mb-2">
+                שם קבוצה 2
+              </label>
+              <input
+                type="text"
+                value={teamNames.t2}
+                onChange={(e) =>
+                  setTeamNames({ ...teamNames, t2: e.target.value })
+                }
+                placeholder="קבוצה 2"
+                className="w-full px-4 py-2 rounded-lg bg-slate-800 text-white border border-slate-600"
+              />
+              <label className="block text-amber-200 font-bold mt-4 mb-2">
+                מספר שחקנים (2–5)
+              </label>
+              <input
+                type="number"
+                min={2}
+                max={5}
+                value={teamPlayerCounts.t2}
+                onChange={(e) => {
+                  const v = Math.max(
+                    2,
+                    Math.min(5, parseInt(e.target.value, 10) || 2),
+                  );
+                  setTeamPlayerCounts({ ...teamPlayerCounts, t2: v });
+                  const c = teamPlayerNames.t2 || [];
+                  const next =
+                    c.length < v
+                      ? [...c, ...Array(v - c.length).fill("")]
+                      : c.slice(0, v);
+                  setTeamPlayerNames({ ...teamPlayerNames, t2: next });
+                }}
+                className="w-full px-4 py-2 rounded-lg bg-slate-800 text-white border border-slate-600"
+              />
+              <div className="mt-3 space-y-2">
+                {Array.from({ length: teamPlayerCounts.t2 }, (_, i) => (
+                  <input
+                    key={i}
+                    type="text"
+                    value={teamPlayerNames.t2[i] || ""}
+                    onChange={(e) => updateNames("t2", i, e.target.value)}
+                    placeholder={`שחקן ${i + 1}`}
+                    className="w-full px-4 py-2 rounded-lg bg-slate-800 text-white border border-slate-600 text-sm"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              startGame();
+              setView("host");
+            }}
+            className="w-full bg-amber-500 text-slate-900 px-8 py-4 rounded-lg font-bold hover:bg-amber-400 text-xl"
+          >
+            התחל משחק
+          </button>
+        </div>
       </div>
     );
   }
@@ -353,9 +470,13 @@ export function HostView() {
 
         <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
           <div className="flex justify-between text-sm text-slate-400 mb-2">
-            <span>קבוצה 1: {scores.t1}</span>
+            <span>
+              {teamNames.t1 || "קבוצה 1"}: {scores.t1}
+            </span>
             <span>סיבוב {round}</span>
-            <span>קבוצה 2: {scores.t2}</span>
+            <span>
+              {teamNames.t2 || "קבוצה 2"}: {scores.t2}
+            </span>
           </div>
           <p className="text-xl font-bold text-white">{curQ.question}</p>
           {!questionRevealed && (
@@ -370,8 +491,9 @@ export function HostView() {
           {(phase === "faceoff" || phase === "play" || phase === "steal") && (
             <p className="text-amber-300/80 text-sm mt-2">
               {phase === "faceoff" &&
-                `פנים מול פנים - קבוצה ${curTeam} שחקן ${faceoffPlayerIndex + 1}`}
-              {phase === "play" && `קבוצה ${curTeam} - שחקן ${curPlayer + 1}`}
+                `פנים מול פנים - ${teamNames[curTeam === 1 ? "t1" : "t2"]} ${teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[faceoffPlayerIndex] || `שחקן ${faceoffPlayerIndex + 1}`}`}
+              {phase === "play" &&
+                `${teamNames[curTeam === 1 ? "t1" : "t2"]} - ${teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[curPlayer] || `שחקן ${curPlayer + 1}`}`}
               {phase === "steal" &&
                 ctrl &&
                 `קבוצה ${ctrl === 1 ? 2 : 1} עכשיו בשליטה - מנסה לגנוב`}
@@ -382,7 +504,7 @@ export function HostView() {
         {phase === "choose" && (
           <div className="bg-orange-500/20 border-2 border-orange-400 rounded-lg p-6 mb-4">
             <h3 className="text-xl font-bold text-center text-orange-200 mb-4">
-              קבוצה {faceoffWin} ניצחה בפנים מול פנים
+              {teamNames[faceoffWin === 1 ? "t1" : "t2"]} ניצחה בפנים מול פנים
               <br />
               <span className="text-lg font-normal">מה הקבוצה החליטה?</span>
             </h3>
@@ -417,7 +539,7 @@ export function HostView() {
                 className="bg-red-600 text-white px-10 py-6 rounded-lg text-xl font-bold hover:bg-red-500 flex items-center gap-2 transition"
               >
                 <Zap size={28} />
-                קבוצה 1
+                {teamNames.t1 || "קבוצה 1"}
               </button>
               <button
                 onClick={() => {
@@ -427,7 +549,7 @@ export function HostView() {
                 className="bg-blue-600 text-white px-10 py-6 rounded-lg text-xl font-bold hover:bg-blue-500 flex items-center gap-2 transition"
               >
                 <Zap size={28} />
-                קבוצה 2
+                {teamNames.t2 || "קבוצה 2"}
               </button>
             </div>
           </div>
@@ -439,7 +561,8 @@ export function HostView() {
               סיבוב {round} הסתיים!
             </h3>
             <p className="text-green-300 mb-4">
-              קבוצה 1: {scores.t1} | קבוצה 2: {scores.t2}
+              {teamNames.t1 || "קבוצה 1"}: {scores.t1} |{" "}
+              {teamNames.t2 || "קבוצה 2"}: {scores.t2}
             </p>
             <button
               onClick={advanceRound}
@@ -465,7 +588,7 @@ export function HostView() {
                     : "bg-slate-600 text-slate-300 hover:bg-slate-500"
                 }`}
               >
-                קבוצה 1
+                {teamNames.t1 || "קבוצה 1"}
               </button>
               <button
                 onClick={() => setCurTeam(2)}
@@ -475,26 +598,38 @@ export function HostView() {
                     : "bg-slate-600 text-slate-300 hover:bg-slate-500"
                 }`}
               >
-                קבוצה 2
+                {teamNames.t2 || "קבוצה 2"}
               </button>
             </div>
             <p className="text-center text-yellow-200/80 text-sm">
               שחקן בפנים מול פנים (הראשון בסיבוב יהיה הבא בתור)
             </p>
             <div className="flex gap-2 justify-center flex-wrap">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <button
-                  key={i}
-                  onClick={() => setFaceoffPlayerIndex(i)}
-                  className={`w-10 h-10 rounded-lg font-bold ${
-                    faceoffPlayerIndex === i
-                      ? "bg-amber-500 text-slate-900"
-                      : "bg-slate-600 text-slate-300 hover:bg-slate-500"
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
+              {Array.from(
+                {
+                  length: Math.min(
+                    5,
+                    Math.max(2, teamPlayerCounts[curTeam === 1 ? "t1" : "t2"]),
+                  ),
+                },
+                (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setFaceoffPlayerIndex(i)}
+                    className={`px-3 py-2 rounded-lg font-bold text-sm ${
+                      faceoffPlayerIndex === i
+                        ? "bg-amber-500 text-slate-900"
+                        : "bg-slate-600 text-slate-300 hover:bg-slate-500"
+                    }`}
+                    title={
+                      teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[i] ||
+                      `שחקן ${i + 1}`
+                    }
+                  >
+                    {teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[i] || i + 1}
+                  </button>
+                ),
+              )}
             </div>
           </div>
         )}

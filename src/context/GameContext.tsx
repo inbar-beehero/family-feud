@@ -44,6 +44,12 @@ interface GameContextValue {
   ctrl: number | null;
   round: number;
   phase: Phase;
+  teamNames: { t1: string; t2: string };
+  teamPlayerCounts: { t1: number; t2: number };
+  teamPlayerNames: { t1: string[]; t2: string[] };
+  setTeamNames: (v: { t1: string; t2: string }) => void;
+  setTeamPlayerCounts: (v: { t1: number; t2: number }) => void;
+  setTeamPlayerNames: (v: { t1: string[]; t2: string[] }) => void;
   curTeam: number;
   curPlayer: number;
   input: string;
@@ -144,6 +150,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [round, setRound] = useState(1);
   const [usedIds, setUsedIds] = useState<number[]>([]);
   const [phase, setPhase] = useState<Phase>("faceoff");
+  const [teamNames, setTeamNames] = useState({ t1: "קבוצה 1", t2: "קבוצה 2" });
+  const [teamPlayerCounts, setTeamPlayerCounts] = useState({ t1: 5, t2: 5 });
+  const [teamPlayerNames, setTeamPlayerNames] = useState<{
+    t1: string[];
+    t2: string[];
+  }>({
+    t1: Array(5).fill(""),
+    t2: Array(5).fill(""),
+  });
   const [curTeam, setCurTeam] = useState(1);
   const [curPlayer, setCurPlayer] = useState(0);
   const [input, setInput] = useState("");
@@ -228,6 +243,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setQuestionRevealed(data.questionRevealed);
         if (data.feedback !== undefined) setFeedback(data.feedback ?? null);
         if (data.view) setView(data.view);
+        if (data.teamNames && typeof data.teamNames === "object")
+          setTeamNames(data.teamNames);
+        if (data.teamPlayerCounts && typeof data.teamPlayerCounts === "object")
+          setTeamPlayerCounts(data.teamPlayerCounts);
+        if (data.teamPlayerNames && typeof data.teamPlayerNames === "object")
+          setTeamPlayerNames(data.teamPlayerNames);
         if (data.fmPhase)
           setFmPhase(
             data.fmPhase === "player2_match" ? "reveal" : data.fmPhase,
@@ -296,6 +317,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setQuestionRevealed(data.questionRevealed);
         if (data.feedback !== undefined) setFeedback(data.feedback ?? null);
         if (data.view) setView(data.view);
+        if (data.teamNames && typeof data.teamNames === "object")
+          setTeamNames(data.teamNames);
+        if (data.teamPlayerCounts && typeof data.teamPlayerCounts === "object")
+          setTeamPlayerCounts(data.teamPlayerCounts);
+        if (data.teamPlayerNames && typeof data.teamPlayerNames === "object")
+          setTeamPlayerNames(data.teamPlayerNames);
         if (data.fmPhase)
           setFmPhase(
             data.fmPhase === "player2_match" ? "reveal" : data.fmPhase,
@@ -339,6 +366,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (fromSyncRef.current) return;
     const payload = {
+      teamNames,
+      teamPlayerCounts,
+      teamPlayerNames,
       curQ,
       revealed,
       scores,
@@ -372,6 +402,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     };
     localStorage.setItem(STORAGE_KEY_SYNC, JSON.stringify(payload));
   }, [
+    teamNames,
+    teamPlayerCounts,
+    teamPlayerNames,
     curQ,
     revealed,
     scores,
@@ -590,26 +623,33 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   const nextPlayer = useCallback(() => {
-    setCurPlayer((p) => (p + 1) % 5);
-  }, []);
+    setCurPlayer((p) => {
+      const count = curTeam === 1 ? teamPlayerCounts.t1 : teamPlayerCounts.t2;
+      return (p + 1) % Math.max(2, Math.min(5, count));
+    });
+  }, [curTeam, teamPlayerCounts]);
 
   const revealQuestion = useCallback(() => setQuestionRevealed(true), []);
 
-  const addStrike = useCallback((currentStrikes: number) => {
-    setStrikes((ns) => {
-      if (ns + 1 >= 3) {
-        setTimeout(() => {
-          setPhase("steal");
-          setCurTeam((c) => (c === 1 ? 2 : 1));
-          setCurPlayer(0);
-        }, 1000);
+  const addStrike = useCallback(
+    (currentStrikes: number) => {
+      setStrikes((ns) => {
+        if (ns + 1 >= 3) {
+          setTimeout(() => {
+            setPhase("steal");
+            setCurTeam((c) => (c === 1 ? 2 : 1));
+            setCurPlayer(0);
+          }, 1000);
+        }
+        return ns + 1;
+      });
+      if (currentStrikes + 1 < 3) {
+        const count = curTeam === 1 ? teamPlayerCounts.t1 : teamPlayerCounts.t2;
+        setCurPlayer((p) => (p + 1) % Math.max(2, Math.min(5, count)));
       }
-      return ns + 1;
-    });
-    if (currentStrikes + 1 < 3) {
-      setCurPlayer((p) => (p + 1) % 5);
-    }
-  }, []);
+    },
+    [curTeam, teamPlayerCounts],
+  );
 
   const hostSelectAnswer = useCallback(
     (realIdx: number | null) => {
@@ -674,7 +714,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
               setFaceoffWin(faceoffFirstBuzzer);
               setCtrl(faceoffFirstBuzzer);
               setCurTeam(faceoffFirstBuzzer);
-              setCurPlayer((faceoffPlayerIndex + 1) % 5);
+              setCurPlayer(
+                (faceoffPlayerIndex + 1) %
+                  Math.max(
+                    2,
+                    Math.min(
+                      5,
+                      faceoffFirstBuzzer === 1
+                        ? teamPlayerCounts.t1
+                        : teamPlayerCounts.t2,
+                    ),
+                  ),
+              );
               setPhase("play");
             } else {
               setCurTeam(curTeam === 1 ? 2 : 1);
@@ -698,6 +749,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       faceoffFirstBuzzer,
       faceoffFirstAnswerIdx,
       faceoffPlayerIndex,
+      teamPlayerCounts,
       awardPoints,
       nextPlayer,
       addStrike,
@@ -711,7 +763,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (d === "play") {
         setCtrl(win);
         setCurTeam(win);
-        setCurPlayer((faceoffPlayerIndex + 1) % 5);
+        setCurPlayer(
+          (faceoffPlayerIndex + 1) %
+            Math.max(2, Math.min(5, teamPlayerCounts[win === 1 ? "t1" : "t2"])),
+        );
       } else {
         setCtrl(other);
         setCurTeam(other);
@@ -719,7 +774,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
       setPhase("play");
     },
-    [faceoffWin, faceoffPlayerIndex],
+    [faceoffWin, faceoffPlayerIndex, teamPlayerCounts],
   );
 
   const handleFmAnswer = useCallback(() => {
@@ -945,6 +1000,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setQuestions: setQuestionsWrapper,
     fmQuestions,
     setFmQuestions: setFmQuestionsWrapper,
+    teamNames,
+    teamPlayerCounts,
+    teamPlayerNames,
+    setTeamNames,
+    setTeamPlayerCounts,
+    setTeamPlayerNames,
     curQ,
     revealed,
     scores,

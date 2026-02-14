@@ -20,6 +20,8 @@ export function GameView() {
     questionRevealed,
     feedback,
     toast,
+    teamNames,
+    teamPlayerNames,
     setView,
     resetCurrentRound,
     resetGame,
@@ -56,7 +58,7 @@ export function GameView() {
               <div
                 className={`text-xs mb-1 ${ctrl === 1 ? "text-blue-900" : "text-yellow-300"}`}
               >
-                קבוצה 1
+                {teamNames.t1 || "קבוצה 1"}
               </div>
               <div
                 className={`text-3xl font-bold ${ctrl === 1 ? "text-blue-900" : "text-white"}`}
@@ -70,7 +72,7 @@ export function GameView() {
               <div
                 className={`text-xs mb-1 ${ctrl === 2 ? "text-blue-900" : "text-yellow-300"}`}
               >
-                קבוצה 2
+                {teamNames.t2 || "קבוצה 2"}
               </div>
               <div
                 className={`text-3xl font-bold ${ctrl === 2 ? "text-blue-900" : "text-white"}`}
@@ -196,12 +198,16 @@ export function GameView() {
                 </h3>
               ) : phase === "faceoff" && faceoffFirstBuzzer && !faceoffWin ? (
                 <h3 className="text-xl font-bold text-purple-900">
-                  קבוצה {curTeam} - שחקן {faceoffPlayerIndex + 1} (פנים מול
-                  פנים)
+                  {teamNames[curTeam === 1 ? "t1" : "t2"]} -{" "}
+                  {teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[
+                    faceoffPlayerIndex
+                  ] || `שחקן ${faceoffPlayerIndex + 1}`}{" "}
+                  (פנים מול פנים)
                 </h3>
               ) : phase === "choose" ? (
                 <h3 className="text-xl font-bold text-orange-900">
-                  קבוצה {faceoffWin} ניצחה בפנים מול פנים!
+                  {teamNames[faceoffWin === 1 ? "t1" : "t2"]} ניצחה בפנים מול
+                  פנים!
                   <br />
                   <span className="text-lg text-orange-700 font-normal">
                     המנחה יבחר – לשחק או להעביר
@@ -212,10 +218,10 @@ export function GameView() {
                   className={`text-xl font-bold ${phase === "steal" ? "text-red-900" : "text-purple-900"}`}
                 >
                   {phase === "play" &&
-                    `קבוצה ${curTeam} - שחקן ${curPlayer + 1}`}
+                    `${teamNames[curTeam === 1 ? "t1" : "t2"]} - ${teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[curPlayer] || `שחקן ${curPlayer + 1}`}`}
                   {phase === "steal" &&
                     ctrl &&
-                    `קבוצה ${ctrl === 1 ? 2 : 1} עכשיו בשליטה - מנסה לגנוב! 🔥`}
+                    `${teamNames[ctrl === 1 ? "t2" : "t1"]} עכשיו בשליטה - מנסה לגנוב! 🔥`}
                 </h3>
               ) : null}
             </div>
@@ -228,7 +234,8 @@ export function GameView() {
                 סיבוב {round} הסתיים!
               </h3>
               <p className="text-green-700 mb-4">
-                קבוצה 1: {scores.t1} | קבוצה 2: {scores.t2}
+                {teamNames.t1 || "קבוצה 1"}: {scores.t1} |{" "}
+                {teamNames.t2 || "קבוצה 2"}: {scores.t2}
               </p>
               <button
                 onClick={advanceRound}
