@@ -9,7 +9,6 @@ import {
 } from "react";
 import type { Question, FastMoneyQuestion, View } from "@/types";
 import { defaultQuestions, defaultFastMoney } from "@/data/questions";
-import { aiMatchFastMoney } from "@/services/aiMatch";
 import { createBin, readBin, updateBin } from "@/services/jsonbin";
 
 const STORAGE_KEY_API = "family-feud_jsonbin_api";
@@ -69,9 +68,15 @@ interface GameContextValue {
   faceoffFirstAnswerIdx: number | null;
   questionRevealed: boolean;
   revealQuestion: () => void;
-  fmPhase: "player1" | "player2" | "reveal";
+  fmPhase:
+    | "player1"
+    | "player1_match"
+    | "player1_result"
+    | "player2"
+    | "reveal";
   fmPlayer: number;
   fmAnswers: Record<string, string>;
+  fmMatchSelections: Record<string, number | null>;
   fmPoints: { p1: number; p2: number };
   fmDetails: Record<
     string,
@@ -82,9 +87,6 @@ interface GameContextValue {
     }
   >;
   fmQIdx: number;
-  fmTimer: number;
-  fmActive: boolean;
-  fmCalculating: boolean;
   show: (msg: string, type?: "ok" | "err" | "info") => void;
   startGame: () => void;
   resetGame: () => void;
@@ -93,6 +95,15 @@ interface GameContextValue {
   hostSelectAnswer: (realIdx: number | null) => void;
   handlePlayOrPass: (d: "play" | "pass") => void;
   handleFmAnswer: () => void;
+  hostFmSelectMatch: (key: string, answerIdx: number | null) => void;
+  hostFmSelectMatchP2InReveal: (key: string, answerIdx: number | null) => void;
+  hostFmMatchP2AndContinue: (key: string, answerIdx: number | null) => void;
+  hostFmAdvanceToPlayer2: () => void;
+  hostFmSameAnswer: () => void;
+  fmSameAnswerError: boolean;
+  fmRevealedIndices: number[];
+  fmRevealingQIdx: number | null;
+  fmRevealStep: 0 | 1 | 2 | 3;
   startFastMoney: () => void;
 }
 
@@ -159,12 +170,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     number | null
   >(null);
   const [questionRevealed, setQuestionRevealed] = useState(false);
-  const [fmPhase, setFmPhase] = useState<"player1" | "player2" | "reveal">(
-    "player1",
-  );
+  const [fmPhase, setFmPhase] = useState<
+    "player1" | "player1_match" | "player1_result" | "player2" | "reveal"
+  >("player1");
   const [fmPlayer, setFmPlayer] = useState(1);
   const [fmAnswers, setFmAnswers] = useState<Record<string, string>>({});
+  const [fmMatchSelections, setFmMatchSelections] = useState<
+    Record<string, number | null>
+  >({});
   const [fmPoints, setFmPoints] = useState({ p1: 0, p2: 0 });
+  const [fmSameAnswerError, setFmSameAnswerError] = useState(false);
+  const [fmRevealedIndices, setFmRevealedIndices] = useState<number[]>([]);
+  const [fmRevealingQIdx, setFmRevealingQIdx] = useState<number | null>(null);
+  const [fmRevealStep, setFmRevealStep] = useState<0 | 1 | 2 | 3>(0);
   const [fmDetails, setFmDetails] = useState<
     Record<
       string,
@@ -176,9 +194,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     >
   >({});
   const [fmQIdx, setFmQIdx] = useState(0);
-  const [fmTimer, setFmTimer] = useState(60);
-  const [fmActive, setFmActive] = useState(false);
-  const [fmCalculating, setFmCalculating] = useState(false);
   const fromSyncRef = useRef(false);
 
   useEffect(() => {
@@ -213,6 +228,37 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setQuestionRevealed(data.questionRevealed);
         if (data.feedback !== undefined) setFeedback(data.feedback ?? null);
         if (data.view) setView(data.view);
+        if (data.fmPhase)
+          setFmPhase(
+            data.fmPhase === "player2_match" ? "reveal" : data.fmPhase,
+          );
+        if (typeof data.fmPlayer === "number") setFmPlayer(data.fmPlayer);
+        if (typeof data.fmQIdx === "number") setFmQIdx(data.fmQIdx);
+        if (data.fmAnswers && typeof data.fmAnswers === "object")
+          setFmAnswers(data.fmAnswers);
+        if (
+          data.fmMatchSelections &&
+          typeof data.fmMatchSelections === "object"
+        )
+          setFmMatchSelections(data.fmMatchSelections);
+        if (data.fmPoints) setFmPoints(data.fmPoints);
+        if (data.fmDetails && typeof data.fmDetails === "object")
+          setFmDetails(data.fmDetails);
+        if (typeof data.fmSameAnswerError === "boolean")
+          setFmSameAnswerError(data.fmSameAnswerError);
+        if (Array.isArray(data.fmRevealedIndices))
+          setFmRevealedIndices(data.fmRevealedIndices);
+        if (
+          typeof data.fmRevealingQIdx === "number" ||
+          data.fmRevealingQIdx === null
+        )
+          setFmRevealingQIdx(data.fmRevealingQIdx);
+        if (
+          typeof data.fmRevealStep === "number" &&
+          data.fmRevealStep >= 0 &&
+          data.fmRevealStep <= 3
+        )
+          setFmRevealStep(data.fmRevealStep as 0 | 1 | 2 | 3);
       } catch (_) {}
     }
   }, []);
@@ -250,6 +296,37 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setQuestionRevealed(data.questionRevealed);
         if (data.feedback !== undefined) setFeedback(data.feedback ?? null);
         if (data.view) setView(data.view);
+        if (data.fmPhase)
+          setFmPhase(
+            data.fmPhase === "player2_match" ? "reveal" : data.fmPhase,
+          );
+        if (typeof data.fmPlayer === "number") setFmPlayer(data.fmPlayer);
+        if (typeof data.fmQIdx === "number") setFmQIdx(data.fmQIdx);
+        if (data.fmAnswers && typeof data.fmAnswers === "object")
+          setFmAnswers(data.fmAnswers);
+        if (
+          data.fmMatchSelections &&
+          typeof data.fmMatchSelections === "object"
+        )
+          setFmMatchSelections(data.fmMatchSelections);
+        if (data.fmPoints) setFmPoints(data.fmPoints);
+        if (data.fmDetails && typeof data.fmDetails === "object")
+          setFmDetails(data.fmDetails);
+        if (typeof data.fmSameAnswerError === "boolean")
+          setFmSameAnswerError(data.fmSameAnswerError);
+        if (Array.isArray(data.fmRevealedIndices))
+          setFmRevealedIndices(data.fmRevealedIndices);
+        if (
+          typeof data.fmRevealingQIdx === "number" ||
+          data.fmRevealingQIdx === null
+        )
+          setFmRevealingQIdx(data.fmRevealingQIdx);
+        if (
+          typeof data.fmRevealStep === "number" &&
+          data.fmRevealStep >= 0 &&
+          data.fmRevealStep <= 3
+        )
+          setFmRevealStep(data.fmRevealStep as 0 | 1 | 2 | 3);
       } catch (_) {}
       setTimeout(() => {
         fromSyncRef.current = false;
@@ -281,6 +358,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
       questionRevealed,
       feedback,
       view,
+      fmPhase,
+      fmPlayer,
+      fmQIdx,
+      fmAnswers,
+      fmMatchSelections,
+      fmPoints,
+      fmDetails,
+      fmSameAnswerError,
+      fmRevealedIndices,
+      fmRevealingQIdx,
+      fmRevealStep,
     };
     localStorage.setItem(STORAGE_KEY_SYNC, JSON.stringify(payload));
   }, [
@@ -303,6 +391,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     questionRevealed,
     feedback,
     view,
+    fmPhase,
+    fmPlayer,
+    fmQIdx,
+    fmAnswers,
+    fmMatchSelections,
+    fmPoints,
+    fmDetails,
+    fmSameAnswerError,
+    fmRevealedIndices,
+    fmRevealingQIdx,
+    fmRevealStep,
   ]);
 
   const show = useCallback(
@@ -438,14 +537,40 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (ok) setView("game");
   }, [beginRound, questions]);
 
-  const finishFastMoney = useCallback(
-    async (ans: Record<string, string>) => {
-      setFmPhase("reveal");
-      setFmCalculating(true);
-      const result = await aiMatchFastMoney(fmQuestions, ans);
-      setFmPoints({ p1: result.p1, p2: result.p2 });
-      setFmDetails(result.details ?? {});
-      setFmCalculating(false);
+  const finishPlayer1Matches = useCallback(
+    (selections: Record<string, number | null>) => {
+      let p1 = 0;
+      const details: Record<
+        string,
+        {
+          matched: boolean;
+          answer?: { text: string; points: number };
+          points?: number;
+        }
+      > = {};
+      for (let i = 0; i < 5; i++) {
+        const q = fmQuestions[i];
+        if (!q) continue;
+        const key = `p1_q${i}`;
+        const idx = selections[key];
+        if (idx === undefined) continue;
+        if (idx === null) {
+          details[key] = { matched: false };
+        } else if (q.answers[idx]) {
+          const pts = q.answers[idx].points;
+          p1 += pts;
+          details[key] = {
+            matched: true,
+            answer: q.answers[idx],
+            points: pts,
+          };
+        } else {
+          details[key] = { matched: false };
+        }
+      }
+      setFmPoints((prev) => ({ ...prev, p1 }));
+      setFmDetails(details);
+      setFmPhase("player1_result");
     },
     [fmQuestions],
   );
@@ -544,7 +669,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setTimeout(() => {
           setFeedback(null);
           if (phase === "faceoff") {
-            if (curTeam !== faceoffFirstBuzzer) {
+            if (faceoffFirstBuzzer !== null && curTeam !== faceoffFirstBuzzer) {
               setFaceoffBothMissed(true);
               setFaceoffWin(faceoffFirstBuzzer);
               setCtrl(faceoffFirstBuzzer);
@@ -600,26 +725,124 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const handleFmAnswer = useCallback(() => {
     if (!input.trim()) return;
     const key = `p${fmPlayer}_q${fmQIdx}`;
-    const newAns = { ...fmAnswers, [key]: input };
+    const newAns = { ...fmAnswers, [key]: input.trim() };
     setFmAnswers(newAns);
     setInput("");
     if (fmQIdx < 4) {
       setFmQIdx(fmQIdx + 1);
     } else {
-      setFmActive(false);
       if (fmPlayer === 1) {
-        setTimeout(() => {
-          setFmPlayer(2);
-          setFmPhase("player2");
-          setFmQIdx(0);
-          setFmTimer(60);
-          setFmActive(true);
-        }, 1500);
+        setFmPhase("player1_match");
+        setFmMatchSelections({});
       } else {
-        setTimeout(() => finishFastMoney(newAns), 1500);
+        setFmPhase("reveal");
+        setFmMatchSelections({});
+        setFmRevealedIndices([]);
+        setFmRevealingQIdx(0);
+        setFmRevealStep(0);
       }
     }
-  }, [input, fmPlayer, fmQIdx, fmAnswers, finishFastMoney]);
+  }, [input, fmPlayer, fmQIdx, fmAnswers]);
+
+  const hostFmSelectMatch = useCallback(
+    (key: string, answerIdx: number | null) => {
+      setFmMatchSelections((prev) => {
+        const next = { ...prev, [key]: answerIdx };
+        const p1Keys = ["p1_q0", "p1_q1", "p1_q2", "p1_q3", "p1_q4"];
+        if (p1Keys.every((k) => k in next)) {
+          finishPlayer1Matches(next);
+        }
+        return next;
+      });
+    },
+    [finishPlayer1Matches],
+  );
+
+  const hostFmSelectMatchP2InReveal = useCallback(
+    (key: string, answerIdx: number | null) => {
+      const i = parseInt(key.split("_q")[1], 10);
+      const q = fmQuestions[i];
+      if (!q) return;
+      let pts = 0;
+      let detail: {
+        matched: boolean;
+        answer?: { text: string; points: number };
+        points?: number;
+      } = { matched: false };
+      if (answerIdx !== null && q.answers[answerIdx]) {
+        pts = q.answers[answerIdx].points;
+        detail = {
+          matched: true,
+          answer: q.answers[answerIdx],
+          points: pts,
+        };
+      }
+      setFmMatchSelections((prev) => ({ ...prev, [key]: answerIdx }));
+      setFmDetails((prev) => ({ ...prev, [key]: detail }));
+      setFmPoints((prev) => ({ ...prev, p2: prev.p2 + pts }));
+    },
+    [fmQuestions],
+  );
+
+  const hostFmAdvanceToPlayer2 = useCallback(() => {
+    setFmPlayer(2);
+    setFmPhase("player2");
+    setFmQIdx(0);
+    setFmMatchSelections({});
+    setFmSameAnswerError(false);
+  }, []);
+
+  const hostFmSameAnswer = useCallback(() => {
+    setFmSameAnswerError(true);
+    setTimeout(() => setFmSameAnswerError(false), 3000);
+  }, []);
+
+  useEffect(() => {
+    if (fmPhase !== "reveal" || fmRevealingQIdx === null || fmRevealStep !== 0)
+      return;
+    const t = setTimeout(() => setFmRevealStep(1), 1000);
+    return () => clearTimeout(t);
+  }, [fmPhase, fmRevealingQIdx, fmRevealStep]);
+
+  const hostFmMatchP2AndContinue = useCallback(
+    (key: string, answerIdx: number | null) => {
+      if (fmRevealingQIdx === null || fmRevealStep !== 1) return;
+      const i = parseInt(key.split("_q")[1], 10);
+      if (i !== fmRevealingQIdx) return;
+      const q = fmQuestions[i];
+      if (!q) return;
+      let pts = 0;
+      let detail: {
+        matched: boolean;
+        answer?: { text: string; points: number };
+        points?: number;
+      } = { matched: false };
+      if (answerIdx !== null && q.answers[answerIdx]) {
+        pts = q.answers[answerIdx].points;
+        detail = {
+          matched: true,
+          answer: q.answers[answerIdx],
+          points: pts,
+        };
+      }
+      setFmMatchSelections((prev) => ({ ...prev, [key]: answerIdx }));
+      setFmDetails((prev) => ({ ...prev, [key]: detail }));
+      setFmPoints((prev) => ({ ...prev, p2: prev.p2 + pts }));
+      setFmRevealStep(2);
+      setTimeout(() => setFmRevealStep(3), 500);
+      setTimeout(() => {
+        setFmRevealedIndices((prev) => [...prev, i]);
+        if (i < 4) {
+          setFmRevealingQIdx(i + 1);
+          setFmRevealStep(0);
+        } else {
+          setFmRevealingQIdx(null);
+          setFmRevealStep(0);
+        }
+      }, 4500);
+    },
+    [fmRevealingQIdx, fmRevealStep, fmQuestions],
+  );
 
   const resetGame = useCallback(() => {
     setScores({ t1: 0, t2: 0 });
@@ -653,13 +876,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setFmPhase("player1");
       setFmPlayer(1);
       setFmAnswers({});
+      setFmMatchSelections({});
       setFmPoints({ p1: 0, p2: 0 });
       setFmDetails({});
       setFmQIdx(0);
-      setFmTimer(60);
-      setFmActive(true);
       setInput("");
-      setFmCalculating(false);
+      setFmSameAnswerError(false);
+      setFmRevealedIndices([]);
+      setFmRevealingQIdx(null);
+      setFmRevealStep(0);
       setView("fastmoney");
     }
   }, [
@@ -680,13 +905,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setFmPhase("player1");
     setFmPlayer(1);
     setFmAnswers({});
+    setFmMatchSelections({});
     setFmPoints({ p1: 0, p2: 0 });
     setFmDetails({});
     setFmQIdx(0);
-    setFmTimer(60);
-    setFmActive(true);
     setInput("");
-    setFmCalculating(false);
     setView("fastmoney");
   }, [fmQuestions.length, show]);
 
@@ -707,27 +930,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
-
-  useEffect(() => {
-    let iv: ReturnType<typeof setInterval>;
-    if (fmActive && fmTimer > 0) {
-      iv = setInterval(() => setFmTimer((t) => t - 1), 1000);
-    } else if (fmTimer === 0 && fmActive) {
-      setFmActive(false);
-      if (fmPlayer === 1) {
-        setTimeout(() => {
-          setFmPlayer(2);
-          setFmPhase("player2");
-          setFmQIdx(0);
-          setFmTimer(60);
-          setFmActive(true);
-        }, 1500);
-      } else {
-        finishFastMoney(fmAnswers);
-      }
-    }
-    return () => clearInterval(iv!);
-  }, [fmActive, fmTimer, fmPlayer, fmAnswers, finishFastMoney]);
 
   const value: GameContextValue = {
     view,
@@ -765,17 +967,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
     faceoffPlayerIndex,
     setFaceoffPlayerIndex,
     faceoffBothMissed,
+    faceoffFirstAnswerIdx,
     questionRevealed,
     revealQuestion,
     fmPhase,
     fmPlayer,
     fmAnswers,
+    fmMatchSelections,
     fmPoints,
     fmDetails,
     fmQIdx,
-    fmTimer,
-    fmActive,
-    fmCalculating,
+    hostFmSelectMatch,
+    hostFmSelectMatchP2InReveal,
+    hostFmMatchP2AndContinue,
+    hostFmAdvanceToPlayer2,
+    hostFmSameAnswer,
+    fmSameAnswerError,
+    fmRevealedIndices,
+    fmRevealingQIdx,
+    fmRevealStep,
     show,
     startGame: startGameFixed,
     resetGame,

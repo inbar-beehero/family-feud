@@ -20,7 +20,6 @@ export function GameView() {
     questionRevealed,
     feedback,
     toast,
-    faceoffBothMissed,
     setView,
     resetCurrentRound,
     resetGame,

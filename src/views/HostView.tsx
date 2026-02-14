@@ -3,6 +3,7 @@ import { useGame } from "@/context/GameContext";
 
 export function HostView() {
   const {
+    view,
     curQ,
     revealed,
     scores,
@@ -14,7 +15,6 @@ export function HostView() {
     faceoffWin,
     faceoffFirstBuzzer,
     faceoffPlayerIndex,
-    faceoffBothMissed,
     questionRevealed,
     revealQuestion,
     setCurTeam,
@@ -25,7 +25,274 @@ export function HostView() {
     setView,
     startGame,
     advanceRound,
+    startFastMoney,
+    fmPhase,
+    fmPlayer,
+    fmQuestions,
+    fmQIdx,
+    fmAnswers,
+    fmMatchSelections,
+    fmPoints,
+    input,
+    setInput,
+    handleFmAnswer,
+    hostFmSelectMatch,
+    hostFmMatchP2AndContinue,
+    hostFmAdvanceToPlayer2,
+    hostFmSameAnswer,
+    fmRevealedIndices,
+    fmRevealingQIdx,
+    fmRevealStep,
+    resetGame,
   } = useGame();
+
+  if (view === "fastmoney") {
+    return (
+      <div
+        className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 p-6"
+        dir="rtl"
+      >
+        <div className="max-w-2xl mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-amber-300">
+              פאסט מאני - מסך מנחה
+            </h1>
+            <button
+              onClick={() => setView("game")}
+              className="bg-slate-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-slate-500 flex items-center gap-2"
+            >
+              <ArrowRight size={18} />
+              חזרה למשחק
+            </button>
+          </div>
+          {fmPhase === "reveal" ? (
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold text-amber-200 mb-4">
+                בחר התאמה - שחקן 2 (המשחק מציג שאלה ותשובת שחקן 1, מחכה להתאמה)
+              </h3>
+              <div className="space-y-4">
+                {[0, 1, 2, 3, 4].map((i) => {
+                  const key = `p2_q${i}`;
+                  const ans = fmAnswers[key] || "";
+                  const q = fmQuestions[i];
+                  const sel = fmMatchSelections[key];
+                  const p2Matched = key in fmMatchSelections;
+                  const revealed = fmRevealedIndices.includes(i);
+                  const isCurrentAndWaiting =
+                    fmRevealingQIdx === i && fmRevealStep === 1;
+                  const canMatch = !p2Matched && isCurrentAndWaiting;
+                  if (!q) return null;
+                  return (
+                    <div
+                      key={i}
+                      className="bg-slate-700/50 rounded-lg p-4 border border-slate-600"
+                    >
+                      <div className="text-sm text-slate-400 mb-1">
+                        שאלה {i + 1}
+                      </div>
+                      <div className="font-bold text-white mb-2">
+                        {q.question}
+                      </div>
+                      <div className="text-amber-300 mb-3">
+                        תשובת שחקן 2: {ans || "—"}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {q.answers.map((a, j) => (
+                          <button
+                            key={j}
+                            onClick={() =>
+                              canMatch && hostFmMatchP2AndContinue(key, j)
+                            }
+                            className={`px-3 py-2 rounded-lg font-bold text-sm ${
+                              p2Matched && sel === j
+                                ? "bg-green-600 text-white"
+                                : p2Matched
+                                  ? "bg-slate-600 text-slate-400"
+                                  : "bg-slate-600 hover:bg-green-600 text-white"
+                            }`}
+                            disabled={!canMatch}
+                          >
+                            {a.text} ({a.points})
+                          </button>
+                        ))}
+                        <button
+                          onClick={() =>
+                            canMatch && hostFmMatchP2AndContinue(key, null)
+                          }
+                          className={`px-3 py-2 rounded-lg font-bold text-sm ${
+                            p2Matched && sel === null
+                              ? "bg-red-600 text-white"
+                              : p2Matched
+                                ? "bg-slate-600 text-slate-400"
+                                : "bg-red-600 hover:bg-red-500 text-white"
+                          }`}
+                          disabled={!canMatch}
+                        >
+                          לא נמצא
+                        </button>
+                      </div>
+                      {revealed && (
+                        <div className="mt-2 text-sm text-green-400">
+                          ✓ הוצגה
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                onClick={resetGame}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg text-xl font-bold hover:bg-blue-500 mt-4"
+              >
+                משחק חדש
+              </button>
+            </div>
+          ) : fmPhase === "player1_result" ? (
+            <div className="bg-slate-700/50 rounded-lg p-6 text-center">
+              <h3 className="text-xl font-bold text-amber-200 mb-4">
+                סיכום שחקן 1
+              </h3>
+              <div className="text-5xl font-bold text-blue-400 mb-6">
+                {fmPoints.p1} נקודות
+              </div>
+              <button
+                onClick={hostFmAdvanceToPlayer2}
+                className="bg-amber-500 text-slate-900 px-8 py-3 rounded-lg text-lg font-bold hover:bg-amber-400"
+              >
+                המשך לשחקן 2
+              </button>
+            </div>
+          ) : fmPhase === "player1_match" ? (
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold text-amber-200 mb-4">
+                בחר התאמה לכל תשובה - שחקן 1
+              </h3>
+              {[0, 1, 2, 3, 4].map((i) => {
+                const key = `p1_q${i}`;
+                const ans = fmAnswers[key] || "";
+                const q = fmQuestions[i];
+                const sel = fmMatchSelections[key];
+                const done = key in fmMatchSelections;
+                if (!q) return null;
+                return (
+                  <div
+                    key={key}
+                    className="bg-slate-700/50 rounded-lg p-4 border border-slate-600"
+                  >
+                    <div className="text-sm text-slate-400 mb-1">
+                      שאלה {i + 1}
+                    </div>
+                    <div className="font-bold text-white mb-2">
+                      {q.question}
+                    </div>
+                    <div className="text-amber-300 mb-3">
+                      תשובת השחקן: {ans || "—"}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {q.answers.map((a, j) => (
+                        <button
+                          key={j}
+                          onClick={() => !done && hostFmSelectMatch(key, j)}
+                          className={`px-3 py-2 rounded-lg font-bold text-sm ${
+                            done && sel === j
+                              ? "bg-green-600 text-white"
+                              : done
+                                ? "bg-slate-600 text-slate-400"
+                                : "bg-slate-600 hover:bg-green-600 text-white"
+                          }`}
+                          disabled={done}
+                        >
+                          {a.text} ({a.points})
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => !done && hostFmSelectMatch(key, null)}
+                        className={`px-3 py-2 rounded-lg font-bold text-sm ${
+                          done && sel === null
+                            ? "bg-red-600 text-white"
+                            : done
+                              ? "bg-slate-600 text-slate-400"
+                              : "bg-red-600 hover:bg-red-500 text-white"
+                        }`}
+                        disabled={done}
+                      >
+                        לא נמצא
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-slate-700/50 rounded-lg p-6">
+              <h3 className="text-xl font-bold text-amber-200 mb-4">
+                שחקן {fmPlayer} • שאלה {fmQIdx + 1} מתוך 5
+              </h3>
+              {fmPlayer === 2 && (
+                <div className="mb-4 p-3 bg-slate-800 rounded-lg">
+                  <div className="text-sm text-slate-400 mb-2">
+                    תשובות שחקן 1:
+                  </div>
+                  <div className="space-y-1">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <div key={i} className="text-white text-sm">
+                        {i + 1}. {fmAnswers[`p1_q${i}`] || "—"}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={hostFmSameAnswer}
+                    className="mt-3 w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg font-bold"
+                  >
+                    תשובה זהה
+                  </button>
+                </div>
+              )}
+              <p className="text-2xl font-bold text-white mb-4 text-right">
+                {fmQuestions[fmQIdx]?.question}
+              </p>
+              <div className="flex gap-3 mb-4">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleFmAnswer()}
+                  placeholder="הקלד תשובה..."
+                  className="flex-1 px-4 py-3 text-lg border-4 border-amber-400 rounded-lg text-right bg-slate-800 text-white"
+                  autoFocus
+                />
+                <button
+                  onClick={handleFmAnswer}
+                  disabled={!input.trim()}
+                  className="bg-amber-500 text-slate-900 px-6 py-3 rounded-lg text-lg font-bold hover:bg-amber-400 disabled:bg-slate-600 disabled:text-slate-400"
+                >
+                  הבא
+                </button>
+              </div>
+              <div className="space-y-1 mt-4">
+                {Array.from({ length: 5 }, (_, i) => {
+                  const ans = fmAnswers[`p${fmPlayer}_q${i}`];
+                  return (
+                    <div
+                      key={i}
+                      className={`p-2 rounded text-right text-sm ${
+                        ans
+                          ? "bg-green-900/50 text-green-200"
+                          : "bg-slate-700 text-slate-400"
+                      }`}
+                    >
+                      <span className="font-semibold">שאלה {i + 1}:</span>{" "}
+                      {ans || "..."}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!curQ) {
     return (
@@ -59,15 +326,29 @@ export function HostView() {
       dir="rtl"
     >
       <div className="max-w-2xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-2">
           <h1 className="text-2xl font-bold text-amber-300">מסך מנחה</h1>
-          <button
-            onClick={() => setView("game")}
-            className="bg-slate-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-slate-500 flex items-center gap-2"
-          >
-            <ArrowRight size={18} />
-            חזרה למשחק
-          </button>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={advanceRound}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-500 text-sm"
+            >
+              דלג לסיבוב הבא
+            </button>
+            <button
+              onClick={startFastMoney}
+              className="bg-yellow-600 text-slate-900 px-4 py-2 rounded-lg font-semibold hover:bg-yellow-500 text-sm"
+            >
+              דלג לפאסט מאני
+            </button>
+            <button
+              onClick={() => setView("game")}
+              className="bg-slate-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-slate-500 flex items-center gap-2"
+            >
+              <ArrowRight size={18} />
+              חזרה למשחק
+            </button>
+          </div>
         </div>
 
         <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
