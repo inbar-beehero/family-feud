@@ -77,7 +77,7 @@ function CelebrationOverlay({ onEnd }: { onEnd: () => void }) {
 
 export function FastMoneyReveal() {
   const {
-    fmQuestions,
+    fmRoundQuestions,
     fmAnswers,
     fmDetails,
     fmRevealedIndices,
@@ -139,7 +139,7 @@ export function FastMoneyReveal() {
   }, [allDone, won, celebration]);
 
   const currentQ =
-    fmRevealingQIdx !== null ? fmQuestions[fmRevealingQIdx] : null;
+    fmRevealingQIdx !== null ? fmRoundQuestions[fmRevealingQIdx] : null;
 
   return (
     <div

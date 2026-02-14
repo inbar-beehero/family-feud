@@ -28,7 +28,7 @@ export function HostView() {
     startFastMoney,
     fmPhase,
     fmPlayer,
-    fmQuestions,
+    fmRoundQuestions,
     fmQIdx,
     fmAnswers,
     fmMatchSelections,
@@ -80,7 +80,7 @@ export function HostView() {
                 {[0, 1, 2, 3, 4].map((i) => {
                   const key = `p2_q${i}`;
                   const ans = fmAnswers[key] || "";
-                  const q = fmQuestions[i];
+                  const q = fmRoundQuestions[i];
                   const sel = fmMatchSelections[key];
                   const p2Matched = key in fmMatchSelections;
                   const revealed = fmRevealedIndices.includes(i);
@@ -176,7 +176,7 @@ export function HostView() {
               {[0, 1, 2, 3, 4].map((i) => {
                 const key = `p1_q${i}`;
                 const ans = fmAnswers[key] || "";
-                const q = fmQuestions[i];
+                const q = fmRoundQuestions[i];
                 const sel = fmMatchSelections[key];
                 const done = key in fmMatchSelections;
                 if (!q) return null;
@@ -255,7 +255,7 @@ export function HostView() {
                 </div>
               )}
               <p className="text-2xl font-bold text-white mb-4 text-right">
-                {fmQuestions[fmQIdx]?.question}
+                {fmRoundQuestions[fmQIdx]?.question}
               </p>
               <div className="flex gap-3 mb-4">
                 <input

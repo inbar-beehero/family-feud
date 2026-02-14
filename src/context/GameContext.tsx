@@ -33,6 +33,7 @@ interface GameContextValue {
   questions: Question[];
   setQuestions: (q: Question[] | ((p: Question[]) => Question[])) => void;
   fmQuestions: FastMoneyQuestion[];
+  fmRoundQuestions: FastMoneyQuestion[];
   setFmQuestions: (
     q: FastMoneyQuestion[] | ((p: FastMoneyQuestion[]) => FastMoneyQuestion[]),
   ) => void;
@@ -127,6 +128,15 @@ function pickQuestion(
   return avail[Math.floor(Math.random() * avail.length)];
 }
 
+function pickRandomFmQuestions(
+  pool: FastMoneyQuestion[],
+  n: number,
+): FastMoneyQuestion[] {
+  if (pool.length <= n) return [...pool];
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, n);
+}
+
 export function GameProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState<View>("start");
   const [storageApiKey, setStorageApiKey] = useState<string>(
@@ -140,6 +150,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [questions, setQuestions] = useState<Question[]>(defaultQuestions);
   const [fmQuestions, setFmQuestions] =
     useState<FastMoneyQuestion[]>(defaultFastMoney);
+  const [fmRoundQuestions, setFmRoundQuestions] = useState<FastMoneyQuestion[]>(
+    [],
+  );
   const storageConnected = !!storageBinId && !!storageApiKey;
   const [curQ, setCurQ] = useState<Question | null>(null);
   const [revealed, setRevealed] = useState<number[]>([]);
@@ -249,6 +262,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setTeamPlayerCounts(data.teamPlayerCounts);
         if (data.teamPlayerNames && typeof data.teamPlayerNames === "object")
           setTeamPlayerNames(data.teamPlayerNames);
+        if (Array.isArray(data.fmRoundQuestions))
+          setFmRoundQuestions(data.fmRoundQuestions);
         if (data.fmPhase)
           setFmPhase(
             data.fmPhase === "player2_match" ? "reveal" : data.fmPhase,
@@ -323,6 +338,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setTeamPlayerCounts(data.teamPlayerCounts);
         if (data.teamPlayerNames && typeof data.teamPlayerNames === "object")
           setTeamPlayerNames(data.teamPlayerNames);
+        if (Array.isArray(data.fmRoundQuestions))
+          setFmRoundQuestions(data.fmRoundQuestions);
         if (data.fmPhase)
           setFmPhase(
             data.fmPhase === "player2_match" ? "reveal" : data.fmPhase,
@@ -388,6 +405,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       questionRevealed,
       feedback,
       view,
+      fmRoundQuestions,
       fmPhase,
       fmPlayer,
       fmQIdx,
@@ -424,6 +442,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     questionRevealed,
     feedback,
     view,
+    fmRoundQuestions,
     fmPhase,
     fmPlayer,
     fmQIdx,
@@ -582,7 +601,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
       > = {};
       for (let i = 0; i < 5; i++) {
-        const q = fmQuestions[i];
+        const q = fmRoundQuestions[i];
         if (!q) continue;
         const key = `p1_q${i}`;
         const idx = selections[key];
@@ -605,7 +624,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setFmDetails(details);
       setFmPhase("player1_result");
     },
-    [fmQuestions],
+    [fmRoundQuestions],
   );
 
   const awardPoints = useCallback(
@@ -816,7 +835,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const hostFmSelectMatchP2InReveal = useCallback(
     (key: string, answerIdx: number | null) => {
       const i = parseInt(key.split("_q")[1], 10);
-      const q = fmQuestions[i];
+      const q = fmRoundQuestions[i];
       if (!q) return;
       let pts = 0;
       let detail: {
@@ -836,7 +855,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setFmDetails((prev) => ({ ...prev, [key]: detail }));
       setFmPoints((prev) => ({ ...prev, p2: prev.p2 + pts }));
     },
-    [fmQuestions],
+    [fmRoundQuestions],
   );
 
   const hostFmAdvanceToPlayer2 = useCallback(() => {
@@ -864,7 +883,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (fmRevealingQIdx === null || fmRevealStep !== 1) return;
       const i = parseInt(key.split("_q")[1], 10);
       if (i !== fmRevealingQIdx) return;
-      const q = fmQuestions[i];
+      const q = fmRoundQuestions[i];
       if (!q) return;
       let pts = 0;
       let detail: {
@@ -896,7 +915,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
       }, 4500);
     },
-    [fmRevealingQIdx, fmRevealStep, fmQuestions],
+    [fmRevealingQIdx, fmRevealStep, fmRoundQuestions],
   );
 
   const resetGame = useCallback(() => {
@@ -928,6 +947,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         show("צריך לפחות 5 שאלות פאסט מאני", "err");
         return;
       }
+      setFmRoundQuestions(pickRandomFmQuestions(fmQuestions, 5));
       setFmPhase("player1");
       setFmPlayer(1);
       setFmAnswers({});
@@ -957,6 +977,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       show("צריך לפחות 5 שאלות פאסט מאני", "err");
       return;
     }
+    setFmRoundQuestions(pickRandomFmQuestions(fmQuestions, 5));
     setFmPhase("player1");
     setFmPlayer(1);
     setFmAnswers({});
@@ -966,7 +987,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setFmQIdx(0);
     setInput("");
     setView("fastmoney");
-  }, [fmQuestions.length, show]);
+  }, [fmQuestions, fmQuestions.length, show]);
 
   const setQuestionsWrapper = useCallback(
     (q: Question[] | ((p: Question[]) => Question[])) => {
@@ -999,6 +1020,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     questions,
     setQuestions: setQuestionsWrapper,
     fmQuestions,
+    fmRoundQuestions,
     setFmQuestions: setFmQuestionsWrapper,
     teamNames,
     teamPlayerCounts,

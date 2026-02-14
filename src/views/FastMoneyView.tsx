@@ -5,7 +5,7 @@ export function FastMoneyView() {
   const {
     fmPhase,
     fmPlayer,
-    fmQuestions,
+    fmRoundQuestions,
     fmQIdx,
     fmAnswers,
     fmMatchSelections,
@@ -65,8 +65,8 @@ export function FastMoneyView() {
                 const sel = fmMatchSelections[key];
                 const matched = key in fmMatchSelections;
                 const pts =
-                  matched && sel !== null && fmQuestions[i]?.answers[sel]
-                    ? fmQuestions[i].answers[sel].points
+                  matched && sel !== null && fmRoundQuestions[i]?.answers[sel]
+                    ? fmRoundQuestions[i].answers[sel].points
                     : matched
                       ? 0
                       : null;
@@ -123,9 +123,9 @@ export function FastMoneyView() {
           פאסט מאני - שחקן {currentPlayer}
         </h1>
         <div className="bg-white rounded-lg shadow-2xl p-6 mb-6">
-          {fmQuestions[fmQIdx] && (
+          {fmRoundQuestions[fmQIdx] && (
             <h2 className="text-2xl font-bold text-blue-900 text-right mb-4">
-              {fmQuestions[fmQIdx].question}
+              {fmRoundQuestions[fmQIdx].question}
             </h2>
           )}
           <p className="text-gray-500 text-lg mb-4 text-right">
