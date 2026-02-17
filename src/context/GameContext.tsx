@@ -36,6 +36,8 @@ interface GameContextValue {
     addedRegular: number;
     addedFm: number;
   } | null>;
+  clearUsedQuestionHistory: () => void;
+  resetQuestionsToCode: () => void;
   usedQuestionHistory: number[];
   questions: Question[];
   setQuestions: (q: Question[] | ((p: Question[]) => Question[])) => void;
@@ -128,15 +130,22 @@ interface GameContextValue {
 
 const GameContext = createContext<GameContextValue | null>(null);
 
+function shuffle<T>(arr: T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 function pickQuestion(
   questions: Question[],
-  r: number,
+  _r: number,
   excludeIds: number[],
   usedHistory: number[],
 ): Question | null {
-  const avail = questions.filter(
-    (q) => q.round === r && !excludeIds.includes(q.id),
-  );
+  const avail = questions.filter((q) => !excludeIds.includes(q.id));
   if (!avail.length) return null;
   const neverUsed = avail.filter((q) => !usedHistory.includes(q.id));
   const pool = neverUsed.length > 0 ? neverUsed : avail;
@@ -152,8 +161,7 @@ function pickRandomFmQuestions(
   const fresh = pool.filter((q) => !usedHistory.includes(q.id));
   const used = pool.filter((q) => usedHistory.includes(q.id));
   const ordered = fresh.length >= n ? fresh : [...fresh, ...used];
-  const shuffled = [...ordered].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
+  return shuffle(ordered).slice(0, n);
 }
 
 export function GameProvider({ children }: { children: ReactNode }) {
@@ -677,6 +685,32 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [usedQuestionHistory, questions, fmQuestions, persistBinWithHistory],
   );
 
+  const clearHistoryIfAllUsed = useCallback(
+    (pool: { id: number }[]): number[] => {
+      if (pool.length === 0 || usedQuestionHistory.length === 0)
+        return usedQuestionHistory;
+      const allUsed = pool.every((q) => usedQuestionHistory.includes(q.id));
+      if (allUsed) {
+        setUsedQuestionHistory([]);
+        persistBinWithHistory(questions, fmQuestions, []);
+        return [];
+      }
+      return usedQuestionHistory;
+    },
+    [usedQuestionHistory, questions, fmQuestions, persistBinWithHistory],
+  );
+
+  const clearUsedQuestionHistory = useCallback(() => {
+    setUsedQuestionHistory([]);
+    persistBinWithHistory(questions, fmQuestions, []);
+  }, [questions, fmQuestions, persistBinWithHistory]);
+
+  const resetQuestionsToCode = useCallback(() => {
+    setQuestions(defaultQuestions);
+    setFmQuestions(defaultFastMoney);
+    persistToStorage(defaultQuestions, defaultFastMoney);
+  }, [persistToStorage]);
+
   const beginRound = useCallback(
     (
       r: number,
@@ -684,7 +718,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       questionsList: Question[],
       initialFaceoffPlayerIndex = 0,
     ) => {
-      const q = pickQuestion(questionsList, r, excludeIds, usedQuestionHistory);
+      const roundPool = questionsList.filter((q) => !excludeIds.includes(q.id));
+      const historyToUse = clearHistoryIfAllUsed(roundPool);
+      const q = pickQuestion(questionsList, r, excludeIds, historyToUse);
       if (!q) {
         show(`אין שאלות זמינות לסיבוב ${r}!`, "err");
         return false;
@@ -711,7 +747,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setQuestionRevealed(false);
       return true;
     },
-    [show, usedQuestionHistory, addToUsedHistory],
+    [show, usedQuestionHistory, addToUsedHistory, clearHistoryIfAllUsed],
   );
 
   const startGameFixed = useCallback(() => {
@@ -1124,11 +1160,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         show("צריך לפחות 5 שאלות פאסט מאני", "err");
         return;
       }
-      const pickedFm = pickRandomFmQuestions(
-        fmQuestions,
-        5,
-        usedQuestionHistory,
-      );
+      const fmHistoryToUse = clearHistoryIfAllUsed(fmQuestions);
+      const pickedFm = pickRandomFmQuestions(fmQuestions, 5, fmHistoryToUse);
       setFmRoundQuestions(pickedFm);
       addToUsedHistory(pickedFm.map((q) => q.id));
       setFmTimeRemaining(fmTimeLimit);
@@ -1158,6 +1191,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     show,
     usedQuestionHistory,
     addToUsedHistory,
+    clearHistoryIfAllUsed,
   ]);
 
   const startFastMoney = useCallback(() => {
@@ -1165,7 +1199,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       show("צריך לפחות 5 שאלות פאסט מאני", "err");
       return;
     }
-    const pickedFm = pickRandomFmQuestions(fmQuestions, 5, usedQuestionHistory);
+    const fmHistoryToUse = clearHistoryIfAllUsed(fmQuestions);
+    const pickedFm = pickRandomFmQuestions(fmQuestions, 5, fmHistoryToUse);
     setFmRoundQuestions(pickedFm);
     addToUsedHistory(pickedFm.map((q) => q.id));
     setFmTimeRemaining(fmTimeLimit);
@@ -1185,6 +1220,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     show,
     usedQuestionHistory,
     addToUsedHistory,
+    clearHistoryIfAllUsed,
   ]);
 
   const setQuestionsWrapper = useCallback(
@@ -1216,6 +1252,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     disconnectStorage,
     persistToStorage,
     mergeCodedQuestionsToBin,
+    clearUsedQuestionHistory,
+    resetQuestionsToCode,
     usedQuestionHistory,
     questions,
     setQuestions: setQuestionsWrapper,

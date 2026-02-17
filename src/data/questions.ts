@@ -3,22 +3,20 @@ import type { Question, FastMoneyQuestion } from "@/types";
 export const defaultQuestions: Question[] = [
   {
     id: 1,
-    round: 1,
     question: "משהו ספציפי במיקי מאוס שאנשים אחרים עשויים לצחוק עליו.",
     answers: [
-      { text: "אוזניים עם קיות", points: 36 },
+      { text: "אוזניים ענקיות", points: 36 },
       { text: "בגדים/כפפות", points: 29 },
       { text: "קול/צחוק", points: 19 },
-      { text: "רגליים עם קיות", points: 3 },
-      { text: "חבר הכי טוב עם ברווז", points: 3 },
+      { text: "רגליים ענקיות", points: 3 },
+      { text: "חבר הכי טוב של ברווז", points: 3 },
       { text: "אף גדול", points: 3 },
     ],
   },
   {
     id: 2,
-    round: 1,
     question:
-      "אם היית חנות שמוכרת רק בן/בת זוג, רוב האנשים היו מנסים לקנות אחד עם מה?",
+      "אם הייתה חנות שמוכרת רק בן/בת זוג, רוב האנשים היו מנסים לקנות אחד עם מה?",
     answers: [
       { text: "עבודה", points: 24 },
       { text: "אישיות/הומור", points: 15 },
@@ -32,8 +30,7 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 3,
-    round: 1,
-    question: "שם משהו ספורטאי עשוי לשבור.",
+    question: "שם משהו שספורטאי עשוי לשבור.",
     answers: [
       { text: "עצם/חלק גוף", points: 80 },
       { text: "שיא", points: 16 },
@@ -43,7 +40,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 4,
-    round: 1,
     question: "מקום שבו אנשים נוטים לאבד את המפתחות שלהם.",
     answers: [
       { text: "בית", points: 55 },
@@ -51,13 +47,12 @@ export const defaultQuestions: Question[] = [
       { text: "תיק יד", points: 10 },
       { text: "מכונית", points: 7 },
       { text: "בר", points: 6 },
-      { text: "חוף ים", points: 5 },
+      { text: "חוף הים", points: 5 },
     ],
   },
   {
     id: 5,
-    round: 1,
-    question: "מקום שמתגבר מתלונן שצריך ללכת אליו.",
+    question: "מקום שמתבגר מתלונן שצריך ללכת אליו.",
     answers: [
       { text: "בית ספר", points: 56 },
       { text: "בית כנסת", points: 26 },
@@ -69,7 +64,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 6,
-    round: 1,
     question: "משהו שרואים בחוץ שיגרום לכם לרצות להישאר בפנים.",
     answers: [
       { text: "מזג אוויר גרוע/טורנדו", points: 71 },
@@ -81,8 +75,7 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 7,
-    round: 2,
-    question: "שם קוסם מפורסם.",
+    question: "שם של קוסם מפורסם.",
     answers: [
       { text: "הארי פוטר", points: 37 },
       { text: "מרלין", points: 26 },
@@ -94,7 +87,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 8,
-    round: 2,
     question: "כשנכנסים לשירותים, איזה צבע אתם ממש מקווים לא לראות באסלה?",
     answers: [
       { text: "חום", points: 61 },
@@ -107,7 +99,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 9,
-    round: 2,
     question: "משהו שקברן היה שונא לגלות לגבי הגופה שהוא עומד לקבור.",
     answers: [
       { text: "שהיא חיה", points: 60 },
@@ -119,7 +110,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 10,
-    round: 2,
     question: "משהו שנראה שהרבה ילדים כמעט מכורים אליו.",
     answers: [
       { text: "מחשב/משחקים", points: 41 },
@@ -130,11 +120,10 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 11,
-    round: 2,
     question: "משהו שיכול להפוך אמבטיה רגילה לרומנטית.",
     answers: [
       { text: "נרות", points: 39 },
-      { text: "קצף", points: 34 },
+      { text: "קצף/בועות", points: 34 },
       { text: "עלי ורדים", points: 9 },
       { text: "עוד מישהו", points: 7 },
       { text: "מוזיקה", points: 3 },
@@ -144,7 +133,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 12,
-    round: 2,
     question: "משהו שהייתם עושים מול מראה.",
     answers: [
       { text: "לצחצח שיניים", points: 26 },
@@ -156,19 +144,17 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 13,
-    round: 3,
     question: "מקום שבו לעולם לא תרצו לשמוע מישהו אומר 'אופס!'.",
     answers: [
       { text: "חדר ניתוח", points: 35 },
       { text: "במטוס", points: 25 },
-      { text: "במתקן בריאותי", points: 20 },
+      { text: "במתקן גרעיני", points: 20 },
       { text: "בגן ילדים", points: 10 },
       { text: "במהלך ראיון עבודה", points: 5 },
     ],
   },
   {
     id: 14,
-    round: 3,
     question: "מי עשוי להגיד 'להרים ידיים'",
     answers: [
       { text: "שוטר", points: 63 },
@@ -179,7 +165,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 15,
-    round: 3,
     question: "שם משהו שיש לו שיניים.",
     answers: [
       { text: "חיות", points: 66 },
@@ -191,8 +176,7 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 16,
-    round: 3,
-    question: "דרכים להתעשר במהירות.",
+    question: "דרכים להתעשר.",
     answers: [
       { text: "להשקיע", points: 28 },
       { text: "לחסוך כסף", points: 24 },
@@ -203,7 +187,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 17,
-    round: 3,
     question: "לאחר שרצחת מישהו, משהו ספציפי שאתה חייב להיפטר ממנו במהירות.",
     answers: [
       { text: "הנשק", points: 58 },
@@ -215,7 +198,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 18,
-    round: 3,
     question: "משהו שהייתם שונאים שיקרה בזמן שאתם מתרחצים.",
     answers: [
       { text: "הטלפון מצלצל", points: 35 },
@@ -229,7 +211,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 20,
-    round: 2,
     question: "משהו שאנשים מחליפים זה עם זה.",
     answers: [
       { text: "בגדים/נעליים", points: 23 },
@@ -241,7 +222,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 21,
-    round: 3,
     question: "משהו שאפשר לנפח או לרוקן.",
     answers: [
       { text: "בלון", points: 44 },
@@ -253,7 +233,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 22,
-    round: 1,
     question: "משהו שעשוי להיות מלא חורים.",
     answers: [
       { text: "גבינה שוויצרית", points: 40 },
@@ -265,7 +244,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 23,
-    round: 2,
     question: "משהו שתוכלו למצוא במגירת הפסולת של שודד ים.",
     answers: [
       { text: "אוסף רטיות לעין", points: 30 },
@@ -277,7 +255,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 24,
-    round: 3,
     question: "אם המקרר שלכם היה יכול לדבר, על מה הוא היה מתלונן?",
     answers: [
       { text: "יותר מדי אוכל שפג תוקף", points: 30 },
@@ -289,7 +266,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 25,
-    round: 1,
     question: "משהו שגורם לאנשים להתעטש.",
     answers: [
       { text: "פלפל", points: 52 },
@@ -301,7 +277,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 26,
-    round: 1,
     question: "סיבה שאדם עלול להתעורר בשתיים בלילה.",
     answers: [
       { text: "צורך ללכת לשירותים", points: 44 },
@@ -313,7 +288,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 27,
-    round: 2,
     question:
       "אחרי שסוף סוף הזזתם את הספה בפעם הראשונה בעשר שנים, מה אולי תמצאו מתחתיה?",
     answers: [
@@ -327,7 +301,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 29,
-    round: 2,
     question: "מה הדבר הגרוע ביותר להיות אלרגי אליו?",
     answers: [
       { text: "אוכל", points: 32 },
@@ -339,7 +312,6 @@ export const defaultQuestions: Question[] = [
   },
   {
     id: 28,
-    round: 3,
     question: "משהו שאדם עצלן במיוחד עשוי לאלף את הכלב שלו להביא לו.",
     answers: [
       { text: "עיתון", points: 48 },

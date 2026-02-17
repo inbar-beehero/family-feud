@@ -6,6 +6,8 @@ import {
   RefreshCw,
   Search,
   ScanSearch,
+  RotateCcw,
+  Undo2,
 } from "lucide-react";
 import { useGame } from "@/context/GameContext";
 import { Toast } from "@/components/Toast";
@@ -29,22 +31,21 @@ export function AdminPanel() {
     storageConnected,
     persistToStorage,
     mergeCodedQuestionsToBin,
+    clearUsedQuestionHistory,
+    resetQuestionsToCode,
   } = useGame();
 
   const [mergeLoading, setMergeLoading] = useState(false);
 
   const [editQ, setEditQ] = useState("");
   const [editAs, setEditAs] = useState<AnswerRow[]>([{ text: "", points: "" }]);
-  const [editRound, setEditRound] = useState(1);
   const [editMode, setEditMode] = useState<"regular" | "fastmoney">("regular");
   const [editFmQ, setEditFmQ] = useState("");
   const [editFmAs, setEditFmAs] = useState<AnswerRow[]>([
     { text: "", points: "" },
   ]);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [collapsedRounds, setCollapsedRounds] = useState<Set<number>>(
-    new Set(),
-  );
+  const [questionsCollapsed, setQuestionsCollapsed] = useState(false);
   const [fmCollapsed, setFmCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -117,15 +118,13 @@ export function AdminPanel() {
       let nextQuestions: Question[];
       if (editingId) {
         nextQuestions = questions.map((q) =>
-          q.id === editingId
-            ? { ...q, round: editRound, question: editQ, answers: valid }
-            : q,
+          q.id === editingId ? { ...q, question: editQ, answers: valid } : q,
         );
         show("השאלה עודכנה!");
       } else {
         nextQuestions = [
           ...questions,
-          { id: Date.now(), round: editRound, question: editQ, answers: valid },
+          { id: Date.now(), question: editQ, answers: valid },
         ];
         show("השאלה נשמרה!");
       }
@@ -163,7 +162,6 @@ export function AdminPanel() {
   const clearEditForm = () => {
     setEditQ("");
     setEditAs([{ text: "", points: "" }]);
-    setEditRound(1);
     setEditFmQ("");
     setEditFmAs([{ text: "", points: "" }]);
     setEditingId(null);
@@ -182,7 +180,6 @@ export function AdminPanel() {
       setEditAs(
         q.answers.map((a) => ({ text: a.text, points: String(a.points) })),
       );
-      setEditRound((q as Question).round ?? 1);
     }
     setEditingId(q.id);
   };
@@ -198,15 +195,6 @@ export function AdminPanel() {
       persistToStorage(next, fmQuestions);
     }
     show("השאלה נמחקה");
-  };
-
-  const toggleRound = (r: number) => {
-    setCollapsedRounds((prev) => {
-      const next = new Set(prev);
-      if (next.has(r)) next.delete(r);
-      else next.add(r);
-      return next;
-    });
   };
 
   const questionsList = (
@@ -228,66 +216,57 @@ export function AdminPanel() {
         />
       </div>
       {editMode === "regular" ? (
-        [1, 2, 3].map((r) => {
-          const rqs = questions
-            .filter((q) => q.round === r)
-            .filter((q) => matchesSearch(q, searchQuery));
-          const isCollapsed = collapsedRounds.has(r);
-          if (!rqs.length) return null;
-          return (
-            <div key={r}>
-              <button
-                onClick={() => toggleRound(r)}
-                className="flex items-center gap-1 w-full text-right text-sm font-bold text-gray-600 hover:text-gray-800 mb-2"
-              >
-                {isCollapsed ? (
-                  <ChevronRight size={16} className="shrink-0" />
-                ) : (
-                  <ChevronDown size={16} className="shrink-0" />
-                )}
-                סיבוב {r} (×{r}){" "}
-                <span className="text-gray-400 font-normal">
-                  ({rqs.length}
-                  {searchQuery.trim() &&
-                    ` / ${questions.filter((q) => q.round === r).length}`}
-                  )
-                </span>
-              </button>
-              {!isCollapsed && (
-                <div className="space-y-2">
-                  {rqs.map((q) => (
-                    <div
-                      key={q.id}
-                      className={`border rounded-lg p-2 ${editingId === q.id ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}
-                    >
-                      <div className="flex justify-between items-start gap-1">
-                        <div className="flex gap-1 shrink-0">
-                          <button
-                            onClick={() => delQ(q.id)}
-                            className="text-red-500 hover:text-red-700 p-0.5"
-                            title="מחק"
-                          >
-                            <X size={16} />
-                          </button>
-                          <button
-                            onClick={() => startEditQuestion(q)}
-                            className="text-blue-500 hover:text-blue-700 p-0.5"
-                            title="ערוך"
-                          >
-                            ✎
-                          </button>
-                        </div>
-                        <span className="font-medium text-gray-800 text-right text-sm line-clamp-2">
-                          {q.question}
-                        </span>
+        <div>
+          <button
+            onClick={() => setQuestionsCollapsed((c) => !c)}
+            className="flex items-center gap-1 w-full text-right text-sm font-bold text-gray-600 hover:text-gray-800 mb-2"
+          >
+            {questionsCollapsed ? (
+              <ChevronRight size={16} className="shrink-0" />
+            ) : (
+              <ChevronDown size={16} className="shrink-0" />
+            )}
+            רשימת שאלות{" "}
+            <span className="text-gray-400 font-normal">
+              ({questions.filter((q) => matchesSearch(q, searchQuery)).length}
+              {searchQuery.trim() && ` / ${questions.length}`})
+            </span>
+          </button>
+          {!questionsCollapsed && (
+            <div className="space-y-2">
+              {questions
+                .filter((q) => matchesSearch(q, searchQuery))
+                .map((q) => (
+                  <div
+                    key={q.id}
+                    className={`border rounded-lg p-2 ${editingId === q.id ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}
+                  >
+                    <div className="flex justify-between items-start gap-1">
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          onClick={() => delQ(q.id)}
+                          className="text-red-500 hover:text-red-700 p-0.5"
+                          title="מחק"
+                        >
+                          <X size={16} />
+                        </button>
+                        <button
+                          onClick={() => startEditQuestion(q)}
+                          className="text-blue-500 hover:text-blue-700 p-0.5"
+                          title="ערוך"
+                        >
+                          ✎
+                        </button>
                       </div>
+                      <span className="font-medium text-gray-800 text-right text-sm line-clamp-2">
+                        {q.question}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ))}
             </div>
-          );
-        })
+          )}
+        </div>
       ) : (
         <div>
           <button
@@ -365,6 +344,27 @@ export function AdminPanel() {
               <ScanSearch size={18} />
               מצא והסר כפילויות
             </button>
+            <button
+              onClick={() => {
+                clearUsedQuestionHistory();
+                show("היסטוריית השאלות שנבחרו אותחלה", "ok");
+              }}
+              className="flex items-center gap-2 bg-slate-600 text-white px-4 py-2 rounded-lg hover:bg-slate-700"
+            >
+              <RotateCcw size={18} />
+              אפס היסטוריית שאלות
+            </button>
+            <button
+              onClick={() => {
+                resetQuestionsToCode();
+                clearEditForm();
+                show("השאלות הוחזרו לערכי הקוד", "ok");
+              }}
+              className="flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-lg hover:bg-violet-700"
+            >
+              <Undo2 size={18} />
+              אפס שאלות לקוד
+            </button>
             {storageConnected && (
               <button
                 onClick={async () => {
@@ -426,22 +426,6 @@ export function AdminPanel() {
                     ? "הוספת שאלה לפאסט מאני"
                     : "הוספת שאלה חדשה"}
               </h2>
-              {editMode === "regular" && (
-                <div className="mb-3">
-                  <label className="block text-sm font-semibold mb-1 text-gray-700">
-                    סיבוב
-                  </label>
-                  <select
-                    value={editRound}
-                    onChange={(e) => setEditRound(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg"
-                  >
-                    <option value={1}>סיבוב 1 (×1)</option>
-                    <option value={2}>סיבוב 2 (×2)</option>
-                    <option value={3}>סיבוב 3 (×3)</option>
-                  </select>
-                </div>
-              )}
               <div className="mb-3">
                 <label className="block text-sm font-semibold mb-1 text-gray-700">
                   שאלה

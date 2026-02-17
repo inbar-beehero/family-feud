@@ -5,7 +5,6 @@ export interface Answer {
 
 export interface Question {
   id: number;
-  round?: number;
   question: string;
   answers: Answer[];
 }
