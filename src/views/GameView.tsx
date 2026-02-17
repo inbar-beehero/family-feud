@@ -127,7 +127,7 @@ export function GameView() {
               </h2>
             ) : (
               <div className="flex-1 mr-3 text-slate-400 text-right text-lg">
-                ההמנחה יציג את השאלה
+                המנחה יציג את השאלה
               </div>
             )}
           </div>

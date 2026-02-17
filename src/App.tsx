@@ -1,4 +1,5 @@
 import { GameProvider, useGame } from "@/context/GameContext";
+import { ThemeMusic } from "@/components/ThemeMusic";
 import { StartScreen } from "@/views/StartScreen";
 import { AdminPanel } from "@/views/AdminPanel";
 import { GameView } from "@/views/GameView";
@@ -10,14 +11,19 @@ function AppContent() {
   const isHost =
     new URLSearchParams(window.location.search).get("host") === "1";
 
-  if (isHost) return <HostView />;
-  if (view === "start") return <StartScreen />;
-  if (view === "admin") return <AdminPanel />;
-  if (view === "game") return <GameView />;
-  if (view === "host") return <HostView />;
-  if (view === "fastmoney") return <FastMoneyView />;
+  let content = null;
+  if (isHost) content = <HostView />;
+  else if (view === "start") content = <StartScreen />;
+  else if (view === "admin") content = <AdminPanel />;
+  else if (view === "game" || view === "host") content = <GameView />;
+  else if (view === "fastmoney") content = <FastMoneyView />;
 
-  return null;
+  return (
+    <>
+      <ThemeMusic />
+      {content}
+    </>
+  );
 }
 
 export default function App() {

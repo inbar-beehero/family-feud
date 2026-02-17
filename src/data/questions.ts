@@ -738,7 +738,7 @@ export const defaultFastMoney: FastMoneyQuestion[] = [
   },
   {
     id: 1036,
-    question: "מה הייתם עושים אם הייתם רואים רוח?",
+    question: "מה הייתם עושים אם הייתם רואים רוח רפאים?",
     answers: [
       { text: "צועקים", points: 42 },
       { text: "מדברים איתה", points: 24 },

@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { X, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import {
+  X,
+  ChevronDown,
+  ChevronRight,
+  RefreshCw,
+  Search,
+  ScanSearch,
+} from "lucide-react";
 import { useGame } from "@/context/GameContext";
 import { Toast } from "@/components/Toast";
 import type { Question, FastMoneyQuestion } from "@/types";
@@ -39,6 +46,60 @@ export function AdminPanel() {
     new Set(),
   );
   const [fmCollapsed, setFmCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const matchesSearch = (q: Question | FastMoneyQuestion, qry: string) => {
+    const s = qry.trim().toLowerCase();
+    if (!s) return true;
+    const inQuestion = q.question.toLowerCase().includes(s);
+    const inAnswers = q.answers.some((a) => a.text.toLowerCase().includes(s));
+    return inQuestion || inAnswers;
+  };
+
+  const normQuestion = (q: Question | FastMoneyQuestion) =>
+    (q?.question ?? "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/[.،,;:!?]+$/, "")
+      .toLowerCase();
+
+  const dedupeQuestions = <T extends Question | FastMoneyQuestion>(
+    arr: T[],
+  ): { kept: T[]; removed: number } => {
+    const seen = new Set<string>();
+    const kept: T[] = [];
+    for (const q of arr) {
+      const key = normQuestion(q);
+      if (!key) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      kept.push(q);
+    }
+    return { kept, removed: arr.length - kept.length };
+  };
+
+  const removeDuplicates = () => {
+    const { kept: qKept, removed: qRemoved } = dedupeQuestions(questions);
+    const { kept: fmKept, removed: fmRemoved } = dedupeQuestions(fmQuestions);
+    const total = qRemoved + fmRemoved;
+    if (total === 0) {
+      show("לא נמצאו כפילויות", "info");
+      return;
+    }
+    setQuestions(qKept);
+    setFmQuestions(fmKept);
+    persistToStorage(qKept, fmKept);
+    show(
+      `הוסרו ${total} כפילויות (${qRemoved} רגילות, ${fmRemoved} פאסט מאני)`,
+      "ok",
+    );
+    if (editingId !== null) {
+      const stillExists =
+        qKept.some((q) => q.id === editingId) ||
+        fmKept.some((q) => q.id === editingId);
+      if (!stillExists) clearEditForm();
+    }
+  };
 
   const curAs = editMode === "regular" ? editAs : editFmAs;
   const setCurAs = editMode === "regular" ? setEditAs : setEditFmAs;
@@ -153,9 +214,24 @@ export function AdminPanel() {
       <h2 className="text-lg font-bold text-gray-800">
         {editMode === "regular" ? "שאלות קיימות" : "שאלות פאסט מאני"}
       </h2>
+      <div className="relative">
+        <Search
+          size={18}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+        />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="חיפוש שאלות..."
+          className="w-full pr-9 pl-3 py-2 border border-gray-300 rounded-lg text-right text-sm"
+        />
+      </div>
       {editMode === "regular" ? (
         [1, 2, 3].map((r) => {
-          const rqs = questions.filter((q) => q.round === r);
+          const rqs = questions
+            .filter((q) => q.round === r)
+            .filter((q) => matchesSearch(q, searchQuery));
           const isCollapsed = collapsedRounds.has(r);
           if (!rqs.length) return null;
           return (
@@ -171,7 +247,10 @@ export function AdminPanel() {
                 )}
                 סיבוב {r} (×{r}){" "}
                 <span className="text-gray-400 font-normal">
-                  ({rqs.length})
+                  ({rqs.length}
+                  {searchQuery.trim() &&
+                    ` / ${questions.filter((q) => q.round === r).length}`}
+                  )
                 </span>
               </button>
               {!isCollapsed && (
@@ -222,39 +301,42 @@ export function AdminPanel() {
             )}
             רשימת שאלות{" "}
             <span className="text-gray-400 font-normal">
-              ({fmQuestions.length})
+              ({fmQuestions.filter((q) => matchesSearch(q, searchQuery)).length}
+              {searchQuery.trim() && ` / ${fmQuestions.length}`})
             </span>
           </button>
           {!fmCollapsed && (
             <div className="space-y-2">
-              {fmQuestions.map((q) => (
-                <div
-                  key={q.id}
-                  className={`border rounded-lg p-2 ${editingId === q.id ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}
-                >
-                  <div className="flex justify-between items-start gap-1">
-                    <div className="flex gap-1 shrink-0">
-                      <button
-                        onClick={() => delQ(q.id, true)}
-                        className="text-red-500 hover:text-red-700 p-0.5"
-                        title="מחק"
-                      >
-                        <X size={16} />
-                      </button>
-                      <button
-                        onClick={() => startEditQuestion(q, true)}
-                        className="text-blue-500 hover:text-blue-700 p-0.5"
-                        title="ערוך"
-                      >
-                        ✎
-                      </button>
+              {fmQuestions
+                .filter((q) => matchesSearch(q, searchQuery))
+                .map((q) => (
+                  <div
+                    key={q.id}
+                    className={`border rounded-lg p-2 ${editingId === q.id ? "border-yellow-400 bg-yellow-50" : "border-gray-200 hover:bg-gray-50"}`}
+                  >
+                    <div className="flex justify-between items-start gap-1">
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          onClick={() => delQ(q.id, true)}
+                          className="text-red-500 hover:text-red-700 p-0.5"
+                          title="מחק"
+                        >
+                          <X size={16} />
+                        </button>
+                        <button
+                          onClick={() => startEditQuestion(q, true)}
+                          className="text-blue-500 hover:text-blue-700 p-0.5"
+                          title="ערוך"
+                        >
+                          ✎
+                        </button>
+                      </div>
+                      <span className="font-medium text-gray-800 text-right text-sm line-clamp-2">
+                        {q.question}
+                      </span>
                     </div>
-                    <span className="font-medium text-gray-800 text-right text-sm line-clamp-2">
-                      {q.question}
-                    </span>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           )}
         </div>
@@ -276,6 +358,13 @@ export function AdminPanel() {
             )}
           </div>
           <div className="flex gap-3 items-center">
+            <button
+              onClick={removeDuplicates}
+              className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700"
+            >
+              <ScanSearch size={18} />
+              מצא והסר כפילויות
+            </button>
             {storageConnected && (
               <button
                 onClick={async () => {

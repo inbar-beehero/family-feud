@@ -10,6 +10,7 @@ import {
 import type { Question, FastMoneyQuestion, View } from "@/types";
 import { defaultQuestions, defaultFastMoney } from "@/data/questions";
 import { createBin, readBin, updateBin } from "@/services/jsonbin";
+import { playCorrectAnswer, playWrongAnswer } from "@/utils/sounds";
 
 const STORAGE_KEY_API = "family-feud_jsonbin_api";
 const STORAGE_KEY_BIN = "family-feud_jsonbin_bin";
@@ -810,6 +811,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         .filter((i) => !revealed.includes(i));
 
       if (realIdx !== null && availableIndices.includes(realIdx)) {
+        playCorrectAnswer();
         const pts = curQ.answers[realIdx].points * round;
         const newRevealed = [...revealed, realIdx];
         const newRoundScore = roundScore + pts;
@@ -843,6 +845,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             awardPoints(ctrl === 1 ? 2 : 1, newRoundScore);
         }, 3000);
       } else {
+        playWrongAnswer();
         setFeedback({ type: "wrong" });
         if (phase === "faceoff" && !questionRevealed) setQuestionRevealed(true);
         setTimeout(() => {
@@ -949,6 +952,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const hostFmSelectMatch = useCallback(
     (key: string, answerIdx: number | null) => {
+      const i = parseInt(key.split("_q")[1], 10);
+      const q = fmRoundQuestions[i];
+      if (q) {
+        if (answerIdx !== null && q.answers[answerIdx]) {
+          playCorrectAnswer();
+        } else if (answerIdx === null) {
+          playWrongAnswer();
+        }
+      }
       setFmMatchSelections((prev) => {
         const next = { ...prev, [key]: answerIdx };
         const p1Keys = ["p1_q0", "p1_q1", "p1_q2", "p1_q3", "p1_q4"];
@@ -958,7 +970,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [finishPlayer1Matches],
+    [finishPlayer1Matches, fmRoundQuestions],
   );
 
   const hostFmSelectMatchP2InReveal = useCallback(
@@ -966,6 +978,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const i = parseInt(key.split("_q")[1], 10);
       const q = fmRoundQuestions[i];
       if (!q) return;
+      if (answerIdx !== null && q.answers[answerIdx]) {
+        playCorrectAnswer();
+      } else if (answerIdx === null) {
+        playWrongAnswer();
+      }
       let pts = 0;
       let detail: {
         matched: boolean;
@@ -1040,6 +1057,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (i !== fmRevealingQIdx) return;
       const q = fmRoundQuestions[i];
       if (!q) return;
+      if (answerIdx !== null && q.answers[answerIdx]) {
+        playCorrectAnswer();
+      } else if (answerIdx === null) {
+        playWrongAnswer();
+      }
       let pts = 0;
       let detail: {
         matched: boolean;
