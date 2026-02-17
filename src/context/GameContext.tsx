@@ -14,6 +14,7 @@ import { createBin, readBin, updateBin } from "@/services/jsonbin";
 const STORAGE_KEY_API = "family-feud_jsonbin_api";
 const STORAGE_KEY_BIN = "family-feud_jsonbin_bin";
 const STORAGE_KEY_SYNC = "family-feud_sync";
+const MAX_USED_HISTORY = 100;
 
 type Phase = "faceoff" | "choose" | "play" | "steal" | "roundEnd";
 
@@ -30,6 +31,7 @@ interface GameContextValue {
     questions: Question[],
     fmQuestions: FastMoneyQuestion[],
   ) => Promise<void>;
+  usedQuestionHistory: number[];
   questions: Question[];
   setQuestions: (q: Question[] | ((p: Question[]) => Question[])) => void;
   fmQuestions: FastMoneyQuestion[];
@@ -73,6 +75,8 @@ interface GameContextValue {
   setFaceoffPlayerIndex: (n: number) => void;
   faceoffBothMissed: boolean;
   faceoffFirstAnswerIdx: number | null;
+  faceoffAwaitingWrongTeam: boolean;
+  hostFaceoffWrongTeam: (team: number) => void;
   questionRevealed: boolean;
   revealQuestion: () => void;
   fmPhase:
@@ -123,20 +127,27 @@ function pickQuestion(
   questions: Question[],
   r: number,
   excludeIds: number[],
+  usedHistory: number[],
 ): Question | null {
   const avail = questions.filter(
     (q) => q.round === r && !excludeIds.includes(q.id),
   );
   if (!avail.length) return null;
-  return avail[Math.floor(Math.random() * avail.length)];
+  const neverUsed = avail.filter((q) => !usedHistory.includes(q.id));
+  const pool = neverUsed.length > 0 ? neverUsed : avail;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function pickRandomFmQuestions(
   pool: FastMoneyQuestion[],
   n: number,
+  usedHistory: number[],
 ): FastMoneyQuestion[] {
   if (pool.length <= n) return [...pool];
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const fresh = pool.filter((q) => !usedHistory.includes(q.id));
+  const used = pool.filter((q) => usedHistory.includes(q.id));
+  const ordered = fresh.length >= n ? fresh : [...fresh, ...used];
+  const shuffled = [...ordered].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, n);
 }
 
@@ -156,6 +167,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [fmRoundQuestions, setFmRoundQuestions] = useState<FastMoneyQuestion[]>(
     [],
   );
+  const [usedQuestionHistory, setUsedQuestionHistory] = useState<number[]>([]);
   const storageConnected = !!storageBinId && !!storageApiKey;
   const [curQ, setCurQ] = useState<Question | null>(null);
   const [revealed, setRevealed] = useState<number[]>([]);
@@ -200,6 +212,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [faceoffFirstAnswerIdx, setFaceoffFirstAnswerIdx] = useState<
     number | null
   >(null);
+  const [faceoffAwaitingWrongTeam, setFaceoffAwaitingWrongTeam] =
+    useState(false);
   const [questionRevealed, setQuestionRevealed] = useState(false);
   const [fmPhase, setFmPhase] = useState<
     "player1" | "player1_match" | "player1_result" | "player2" | "reveal"
@@ -259,6 +273,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           data.faceoffFirstAnswerIdx === null
         )
           setFaceoffFirstAnswerIdx(data.faceoffFirstAnswerIdx);
+        if (typeof data.faceoffAwaitingWrongTeam === "boolean")
+          setFaceoffAwaitingWrongTeam(data.faceoffAwaitingWrongTeam);
         if (typeof data.questionRevealed === "boolean")
           setQuestionRevealed(data.questionRevealed);
         if (data.feedback !== undefined) setFeedback(data.feedback ?? null);
@@ -343,6 +359,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           data.faceoffFirstAnswerIdx === null
         )
           setFaceoffFirstAnswerIdx(data.faceoffFirstAnswerIdx);
+        if (typeof data.faceoffAwaitingWrongTeam === "boolean")
+          setFaceoffAwaitingWrongTeam(data.faceoffAwaitingWrongTeam);
         if (typeof data.questionRevealed === "boolean")
           setQuestionRevealed(data.questionRevealed);
         if (data.feedback !== undefined) setFeedback(data.feedback ?? null);
@@ -425,6 +443,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       faceoffPlayerIndex,
       faceoffBothMissed,
       faceoffFirstAnswerIdx,
+      faceoffAwaitingWrongTeam,
       questionRevealed,
       feedback,
       view,
@@ -464,6 +483,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     faceoffPlayerIndex,
     faceoffBothMissed,
     faceoffFirstAnswerIdx,
+    faceoffAwaitingWrongTeam,
     questionRevealed,
     feedback,
     view,
@@ -506,6 +526,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setFmQuestions(
             data.fmQuestions.length ? data.fmQuestions : defaultFastMoney,
           );
+          setUsedQuestionHistory(data.usedQuestionHistory ?? []);
           const bid = binId.trim();
           setStorageBinId(bid);
           localStorage.setItem(STORAGE_KEY_BIN, bid);
@@ -513,6 +534,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           const newBinId = await createBin(key, {
             questions: defaultQuestions,
             fmQuestions: defaultFastMoney,
+            usedQuestionHistory: [],
           });
           setStorageBinId(newBinId);
           setQuestions(defaultQuestions);
@@ -544,6 +566,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setFmQuestions(
             data.fmQuestions.length ? data.fmQuestions : defaultFastMoney,
           );
+          setUsedQuestionHistory(data.usedQuestionHistory ?? []);
         })
         .catch(() => {});
     }
@@ -557,6 +580,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEY_BIN);
     setQuestions(defaultQuestions);
     setFmQuestions(defaultFastMoney);
+    setUsedQuestionHistory([]);
   }, []);
 
   const persistToStorage = useCallback(
@@ -566,12 +590,40 @@ export function GameProvider({ children }: { children: ReactNode }) {
         await updateBin(storageApiKey, storageBinId, {
           questions: q,
           fmQuestions: fm,
+          usedQuestionHistory: usedQuestionHistory,
+        });
+      } catch (e) {
+        show(e instanceof Error ? e.message : "Failed to save", "err");
+      }
+    },
+    [storageApiKey, storageBinId, usedQuestionHistory, show],
+  );
+
+  const persistBinWithHistory = useCallback(
+    async (q: Question[], fm: FastMoneyQuestion[], history: number[]) => {
+      if (!storageApiKey || !storageBinId) return;
+      try {
+        await updateBin(storageApiKey, storageBinId, {
+          questions: q,
+          fmQuestions: fm,
+          usedQuestionHistory: history,
         });
       } catch (e) {
         show(e instanceof Error ? e.message : "Failed to save", "err");
       }
     },
     [storageApiKey, storageBinId, show],
+  );
+
+  const addToUsedHistory = useCallback(
+    (ids: number[]) => {
+      const newHistory = [...usedQuestionHistory, ...ids].slice(
+        -MAX_USED_HISTORY,
+      );
+      setUsedQuestionHistory(newHistory);
+      persistBinWithHistory(questions, fmQuestions, newHistory);
+    },
+    [usedQuestionHistory, questions, fmQuestions, persistBinWithHistory],
   );
 
   const beginRound = useCallback(
@@ -581,13 +633,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       questionsList: Question[],
       initialFaceoffPlayerIndex = 0,
     ) => {
-      const q = pickQuestion(questionsList, r, excludeIds);
+      const q = pickQuestion(questionsList, r, excludeIds, usedQuestionHistory);
       if (!q) {
         show(`אין שאלות זמינות לסיבוב ${r}!`, "err");
         return false;
       }
       setCurQ(q);
       setUsedIds([...excludeIds, q.id]);
+      addToUsedHistory([q.id]);
       setRound(r);
       setRevealed([]);
       setStrikes(0);
@@ -603,10 +656,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setFaceoffPlayerIndex(initialFaceoffPlayerIndex);
       setFaceoffBothMissed(false);
       setFaceoffFirstAnswerIdx(null);
+      setFaceoffAwaitingWrongTeam(false);
       setQuestionRevealed(false);
       return true;
     },
-    [show],
+    [show, usedQuestionHistory, addToUsedHistory],
   );
 
   const startGameFixed = useCallback(() => {
@@ -726,24 +780,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
             return;
           }
           if (phase === "faceoff") {
-            if (curTeam === faceoffFirstBuzzer) {
-              if (realIdx === 0) {
-                setFaceoffWin(curTeam);
-                setPhase("choose");
-              } else {
-                setFaceoffFirstAnswerIdx(realIdx);
-                setCurTeam(faceoffFirstBuzzer === 1 ? 2 : 1);
-              }
+            if (realIdx === 0) {
+              setPhase("choose");
+            } else if (faceoffFirstAnswerIdx === null) {
+              setFaceoffFirstAnswerIdx(realIdx);
             } else {
-              const firstIdx =
-                faceoffFirstAnswerIdx !== null ? faceoffFirstAnswerIdx : 999;
-              if (realIdx < firstIdx) {
-                setFaceoffWin(curTeam);
-                setPhase("choose");
-              } else {
-                setFaceoffWin(faceoffFirstBuzzer);
-                setPhase("choose");
-              }
+              setFaceoffFirstAnswerIdx(null);
+              setPhase("choose");
             }
           } else if (phase === "play") nextPlayer();
           else if (phase === "steal")
@@ -755,7 +798,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setTimeout(() => {
           setFeedback(null);
           if (phase === "faceoff") {
-            if (faceoffFirstBuzzer !== null && curTeam !== faceoffFirstBuzzer) {
+            if (faceoffFirstAnswerIdx !== null) {
+              setPhase("choose");
+              setFaceoffFirstAnswerIdx(null);
+            } else if (faceoffFirstBuzzer === null) {
+              setFaceoffAwaitingWrongTeam(true);
+            } else {
               setFaceoffBothMissed(true);
               setFaceoffWin(faceoffFirstBuzzer);
               setCtrl(faceoffFirstBuzzer);
@@ -773,8 +821,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
                   ),
               );
               setPhase("play");
-            } else {
-              setCurTeam(curTeam === 1 ? 2 : 1);
             }
           } else if (phase === "play") addStrike(strikes);
           else if (phase === "steal") awardPoints(ctrl!, roundScore);
@@ -801,6 +847,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       addStrike,
     ],
   );
+
+  const hostFaceoffWrongTeam = useCallback((team: number) => {
+    setFaceoffFirstBuzzer(team);
+    setCurTeam(team === 1 ? 2 : 1);
+    setFaceoffAwaitingWrongTeam(false);
+  }, []);
 
   const handlePlayOrPass = useCallback(
     (d: "play" | "pass") => {
@@ -1000,7 +1052,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
         show("צריך לפחות 5 שאלות פאסט מאני", "err");
         return;
       }
-      setFmRoundQuestions(pickRandomFmQuestions(fmQuestions, 5));
+      const pickedFm = pickRandomFmQuestions(
+        fmQuestions,
+        5,
+        usedQuestionHistory,
+      );
+      setFmRoundQuestions(pickedFm);
+      addToUsedHistory(pickedFm.map((q) => q.id));
       setFmTimeRemaining(fmTimeLimit);
       setFmPhase("player1");
       setFmPlayer(1);
@@ -1026,6 +1084,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     faceoffPlayerIndex,
     beginRound,
     show,
+    usedQuestionHistory,
+    addToUsedHistory,
   ]);
 
   const startFastMoney = useCallback(() => {
@@ -1033,7 +1093,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       show("צריך לפחות 5 שאלות פאסט מאני", "err");
       return;
     }
-    setFmRoundQuestions(pickRandomFmQuestions(fmQuestions, 5));
+    const pickedFm = pickRandomFmQuestions(fmQuestions, 5, usedQuestionHistory);
+    setFmRoundQuestions(pickedFm);
+    addToUsedHistory(pickedFm.map((q) => q.id));
     setFmTimeRemaining(fmTimeLimit);
     setFmPhase("player1");
     setFmPlayer(1);
@@ -1044,7 +1106,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setFmQIdx(0);
     setInput("");
     setView("fastmoney");
-  }, [fmQuestions, fmQuestions.length, fmTimeLimit, show]);
+  }, [
+    fmQuestions,
+    fmQuestions.length,
+    fmTimeLimit,
+    show,
+    usedQuestionHistory,
+    addToUsedHistory,
+  ]);
 
   const setQuestionsWrapper = useCallback(
     (q: Question[] | ((p: Question[]) => Question[])) => {
@@ -1074,6 +1143,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     connectToStorage,
     disconnectStorage,
     persistToStorage,
+    usedQuestionHistory,
     questions,
     setQuestions: setQuestionsWrapper,
     fmQuestions,
@@ -1108,6 +1178,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setFaceoffPlayerIndex,
     faceoffBothMissed,
     faceoffFirstAnswerIdx,
+    faceoffAwaitingWrongTeam,
+    hostFaceoffWrongTeam,
     questionRevealed,
     revealQuestion,
     fmPhase,

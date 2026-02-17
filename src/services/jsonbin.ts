@@ -5,6 +5,7 @@ const JSONBIN_BASE = "https://api.jsonbin.io/v3";
 export interface BinData {
   questions: Question[];
   fmQuestions: FastMoneyQuestion[];
+  usedQuestionHistory?: number[];
 }
 
 export async function createBin(
@@ -44,6 +45,9 @@ export async function readBin(apiKey: string, binId: string): Promise<BinData> {
   return {
     questions: Array.isArray(json.questions) ? json.questions : [],
     fmQuestions: Array.isArray(json.fmQuestions) ? json.fmQuestions : [],
+    usedQuestionHistory: Array.isArray(json.usedQuestionHistory)
+      ? json.usedQuestionHistory
+      : [],
   };
 }
 

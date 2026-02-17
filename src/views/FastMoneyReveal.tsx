@@ -85,6 +85,8 @@ export function FastMoneyReveal() {
     fmRevealStep,
     resetGame,
     fmPoints,
+    teamNames,
+    teamPlayerNames,
   } = useGame();
 
   const [celebration, setCelebration] = useState(false);
@@ -179,7 +181,9 @@ export function FastMoneyReveal() {
             {fmRevealStep >= 1 && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-blue-50 rounded-lg">
-                  <div className="text-xs text-gray-500 mb-1">שחקן 1</div>
+                  <div className="text-xs text-gray-500 mb-1">
+                    {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}
+                  </div>
                   {fmRevealStep >= 1 ? (
                     <>
                       <div className="font-bold">
@@ -199,7 +203,9 @@ export function FastMoneyReveal() {
                   )}
                 </div>
                 <div className="p-3 bg-purple-50 rounded-lg">
-                  <div className="text-xs text-gray-500 mb-1">שחקן 2</div>
+                  <div className="text-xs text-gray-500 mb-1">
+                    {teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"}
+                  </div>
                   {fmRevealStep >= 2 ? (
                     <>
                       <div className="font-bold">
@@ -253,9 +259,11 @@ export function FastMoneyReveal() {
               <tr className="bg-yellow-100 border-b-2 border-yellow-300">
                 <th className="p-3 text-right font-bold w-12">#</th>
                 <th className="p-3 text-right font-bold border-r border-yellow-300">
-                  שחקן 1
+                  {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}
                 </th>
-                <th className="p-3 text-right font-bold">שחקן 2</th>
+                <th className="p-3 text-right font-bold">
+                  {teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"}
+                </th>
               </tr>
             </thead>
             <tbody>

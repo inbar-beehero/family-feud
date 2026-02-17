@@ -389,7 +389,10 @@ async function main() {
   for (const q of toAdd) {
     mergedFm.push({ ...q });
   }
-  await updateBin({ questions, fmQuestions: mergedFm });
+  const usedQuestionHistory = Array.isArray(existing.usedQuestionHistory)
+    ? existing.usedQuestionHistory
+    : [];
+  await updateBin({ questions, fmQuestions: mergedFm, usedQuestionHistory });
   console.log(
     `Updated bin ${BIN_ID}: added ${toAdd.length} new Fast Money questions (total: ${mergedFm.length})`,
   );

@@ -12,6 +12,8 @@ export function FastMoneyView() {
     fmPoints,
     fmSameAnswerError,
     fmTimeRemaining,
+    teamNames,
+    teamPlayerNames,
   } = useGame();
 
   if (fmPhase === "reveal") {
@@ -29,7 +31,7 @@ export function FastMoneyView() {
             className="text-4xl font-bold text-yellow-300 mb-6"
             style={{ textShadow: "4px 4px 0 rgba(0,0,0,0.5)" }}
           >
-            פאסט מאני - שחקן 1
+            פאסט מאני - {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}
           </h1>
           <div className="bg-white rounded-lg shadow-2xl p-12">
             <div className="text-7xl font-bold text-blue-600">
@@ -53,7 +55,7 @@ export function FastMoneyView() {
             className="text-4xl font-bold text-yellow-300 mb-6"
             style={{ textShadow: "4px 4px 0 rgba(0,0,0,0.5)" }}
           >
-            פאסט מאני - שחקן {p}
+            פאסט מאני - {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}
           </h1>
           <div className="bg-white rounded-lg shadow-2xl p-6">
             <h2 className="text-2xl font-bold text-blue-900 text-right mb-4">
@@ -137,7 +139,10 @@ export function FastMoneyView() {
           className="text-4xl font-bold text-yellow-300 mb-6"
           style={{ textShadow: "4px 4px 0 rgba(0,0,0,0.5)" }}
         >
-          פאסט מאני - שחקן {currentPlayer}
+          פאסט מאני -{" "}
+          {currentPlayer === 1
+            ? teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"
+            : teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"}
         </h1>
         <div className="bg-white rounded-lg shadow-2xl p-6 mb-6">
           {fmRoundQuestions[fmQIdx] && (

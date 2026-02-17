@@ -15,6 +15,10 @@ export function HostView() {
     faceoffWin,
     faceoffFirstBuzzer,
     faceoffPlayerIndex,
+    faceoffFirstAnswerIdx,
+    faceoffAwaitingWrongTeam,
+    hostFaceoffWrongTeam,
+    setFaceoffWin,
     questionRevealed,
     revealQuestion,
     setCurTeam,
@@ -52,6 +56,7 @@ export function HostView() {
     setTeamNames,
     setTeamPlayerCounts,
     setTeamPlayerNames,
+    feedback,
   } = useGame();
 
   if (view === "fastmoney") {
@@ -76,7 +81,11 @@ export function HostView() {
           {fmPhase === "reveal" ? (
             <div className="space-y-4">
               <h3 className="text-xl font-bold text-amber-200 mb-4">
-                בחר התאמה - שחקן 2 (המשחק מציג שאלה ותשובת שחקן 1, מחכה להתאמה)
+                בחר התאמה -{" "}
+                {teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"} (המשחק
+                מציג שאלה ותשובת{" "}
+                {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}, מחכה
+                להתאמה)
               </h3>
               <div className="space-y-4">
                 {[0, 1, 2, 3, 4].map((i) => {
@@ -102,7 +111,9 @@ export function HostView() {
                         {q.question}
                       </div>
                       <div className="text-amber-300 mb-3">
-                        תשובת שחקן 2: {ans || "—"}
+                        תשובת{" "}
+                        {teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"}:{" "}
+                        {ans || "—"}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {q.answers.map((a, j) => (
@@ -158,7 +169,7 @@ export function HostView() {
           ) : fmPhase === "player1_result" ? (
             <div className="bg-slate-700/50 rounded-lg p-6 text-center">
               <h3 className="text-xl font-bold text-amber-200 mb-4">
-                סיכום שחקן 1
+                סיכום {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}
               </h3>
               <div className="text-5xl font-bold text-blue-400 mb-6">
                 {fmPoints.p1} נקודות
@@ -167,13 +178,14 @@ export function HostView() {
                 onClick={hostFmAdvanceToPlayer2}
                 className="bg-amber-500 text-slate-900 px-8 py-3 rounded-lg text-lg font-bold hover:bg-amber-400"
               >
-                המשך לשחקן 2
+                המשך ל{teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"}
               </button>
             </div>
           ) : fmPhase === "player1_match" ? (
             <div className="space-y-4">
               <h3 className="text-xl font-bold text-amber-200 mb-4">
-                בחר התאמה לכל תשובה - שחקן 1
+                בחר התאמה לכל תשובה -{" "}
+                {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}
               </h3>
               {[0, 1, 2, 3, 4].map((i) => {
                 const key = `p1_q${i}`;
@@ -194,7 +206,9 @@ export function HostView() {
                       {q.question}
                     </div>
                     <div className="text-amber-300 mb-3">
-                      תשובת השחקן: {ans || "—"}
+                      תשובת{" "}
+                      {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}:{" "}
+                      {ans || "—"}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {q.answers.map((a, j) => (
@@ -234,12 +248,16 @@ export function HostView() {
           ) : (
             <div className="bg-slate-700/50 rounded-lg p-6">
               <h3 className="text-xl font-bold text-amber-200 mb-4">
-                שחקן {fmPlayer} • שאלה {fmQIdx + 1} מתוך 5
+                {fmPlayer === 1
+                  ? teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"
+                  : teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"}{" "}
+                • שאלה {fmQIdx + 1} מתוך 5
               </h3>
               {fmPlayer === 2 && (
                 <div className="mb-4 p-3 bg-slate-800 rounded-lg">
                   <div className="text-sm text-slate-400 mb-2">
-                    תשובות שחקן 1:
+                    תשובות{" "}
+                    {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}:
                   </div>
                   <div className="space-y-1">
                     {[0, 1, 2, 3, 4].map((i) => (
@@ -435,9 +453,10 @@ export function HostView() {
   }
 
   const canSelect =
-    (phase === "faceoff" && faceoffFirstBuzzer) ||
-    phase === "play" ||
-    phase === "steal";
+    ((phase === "faceoff" && !faceoffAwaitingWrongTeam) ||
+      phase === "play" ||
+      phase === "steal") &&
+    !feedback;
 
   return (
     <div
@@ -509,64 +528,87 @@ export function HostView() {
           {(phase === "faceoff" || phase === "play" || phase === "steal") && (
             <p className="text-amber-300/80 text-sm mt-2">
               {phase === "faceoff" &&
-                `פנים מול פנים - ${teamNames[curTeam === 1 ? "t1" : "t2"]} ${teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[faceoffPlayerIndex] || `שחקן ${faceoffPlayerIndex + 1}`}`}
+                (faceoffFirstBuzzer
+                  ? `פנים מול פנים - ${teamNames[curTeam === 1 ? "t1" : "t2"]} ${teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[faceoffPlayerIndex] || `שחקן ${faceoffPlayerIndex + 1}`} - בחר תשובה או לא נמצא`
+                  : faceoffFirstAnswerIdx !== null
+                    ? "פנים מול פנים - בחר תשובה שנייה"
+                    : "פנים מול פנים - בחר תשובה מהלוח")}
               {phase === "play" &&
                 `${teamNames[curTeam === 1 ? "t1" : "t2"]} - ${teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[curPlayer] || `שחקן ${curPlayer + 1}`}`}
               {phase === "steal" &&
                 ctrl &&
-                `קבוצה ${ctrl === 1 ? 2 : 1} עכשיו בשליטה - מנסה לגנוב`}
+                `${teamNames[ctrl === 1 ? "t2" : "t1"]} עכשיו בשליטה - מנסה לגנוב`}
             </p>
           )}
         </div>
 
         {phase === "choose" && (
           <div className="bg-orange-500/20 border-2 border-orange-400 rounded-lg p-6 mb-4">
-            <h3 className="text-xl font-bold text-center text-orange-200 mb-4">
-              {teamNames[faceoffWin === 1 ? "t1" : "t2"]} ניצחה בפנים מול פנים
-              <br />
-              <span className="text-lg font-normal">מה הקבוצה החליטה?</span>
-            </h3>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => handlePlayOrPass("play")}
-                className="bg-green-600 text-white px-10 py-4 rounded-lg text-xl font-bold hover:bg-green-500"
-              >
-                לשחק ✓
-              </button>
-              <button
-                onClick={() => handlePlayOrPass("pass")}
-                className="bg-orange-600 text-white px-10 py-4 rounded-lg text-xl font-bold hover:bg-orange-500"
-              >
-                להעביר →
-              </button>
-            </div>
+            {faceoffWin === null ? (
+              <>
+                <h3 className="text-xl font-bold text-center text-orange-200 mb-4">
+                  איזו קבוצה נתנה את התשובה הנכונה?
+                </h3>
+                <div className="flex gap-3 justify-center mb-4">
+                  <button
+                    onClick={() => setFaceoffWin(1)}
+                    className="bg-red-600 text-white px-10 py-6 rounded-lg text-xl font-bold hover:bg-red-500 flex items-center gap-2 transition"
+                  >
+                    <Zap size={28} />
+                    {teamNames.t1 || "קבוצה 1"}
+                  </button>
+                  <button
+                    onClick={() => setFaceoffWin(2)}
+                    className="bg-blue-600 text-white px-10 py-6 rounded-lg text-xl font-bold hover:bg-blue-500 flex items-center gap-2 transition"
+                  >
+                    <Zap size={28} />
+                    {teamNames.t2 || "קבוצה 2"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-xl font-bold text-center text-orange-200 mb-4">
+                  {teamNames[faceoffWin === 1 ? "t1" : "t2"]} ניצחה בפנים מול
+                  פנים
+                  <br />
+                  <span className="text-lg font-normal">מה הקבוצה החליטה?</span>
+                </h3>
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={() => handlePlayOrPass("play")}
+                    className="bg-green-600 text-white px-10 py-4 rounded-lg text-xl font-bold hover:bg-green-500"
+                  >
+                    לשחק ✓
+                  </button>
+                  <button
+                    onClick={() => handlePlayOrPass("pass")}
+                    className="bg-orange-600 text-white px-10 py-4 rounded-lg text-xl font-bold hover:bg-orange-500"
+                  >
+                    להעביר →
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
-        {phase === "faceoff" && !faceoffFirstBuzzer && (
+        {phase === "faceoff" && faceoffAwaitingWrongTeam && (
           <div className="bg-yellow-500/20 border-2 border-yellow-400 rounded-lg p-6 mb-4">
             <h3 className="text-xl font-bold text-center text-yellow-200 mb-4">
-              בחר קבוצה לשליטה בלוח
+              איזו קבוצה נתנה תשובה שלא על הלוח?
             </h3>
             <div className="flex gap-3 justify-center">
               <button
-                onClick={() => {
-                  setFaceoffFirstBuzzer(1);
-                  setCurTeam(1);
-                }}
+                onClick={() => hostFaceoffWrongTeam(1)}
                 className="bg-red-600 text-white px-10 py-6 rounded-lg text-xl font-bold hover:bg-red-500 flex items-center gap-2 transition"
               >
-                <Zap size={28} />
                 {teamNames.t1 || "קבוצה 1"}
               </button>
               <button
-                onClick={() => {
-                  setFaceoffFirstBuzzer(2);
-                  setCurTeam(2);
-                }}
+                onClick={() => hostFaceoffWrongTeam(2)}
                 className="bg-blue-600 text-white px-10 py-6 rounded-lg text-xl font-bold hover:bg-blue-500 flex items-center gap-2 transition"
               >
-                <Zap size={28} />
                 {teamNames.t2 || "קבוצה 2"}
               </button>
             </div>
@@ -610,66 +652,6 @@ export function HostView() {
                 <SkipForward size={20} />
                 {round < 3 ? `המשך לסיבוב ${round + 1}` : "המשך לפאסט מאני"}
               </button>
-            </div>
-          </div>
-        )}
-
-        {phase === "faceoff" && faceoffFirstBuzzer && !faceoffWin && (
-          <div className="bg-yellow-500/10 border border-yellow-400/50 rounded-lg p-4 mb-4 space-y-3">
-            <p className="text-center text-yellow-200/80 text-sm">
-              מי עונה כעת?
-            </p>
-            <div className="flex gap-2 justify-center">
-              <button
-                onClick={() => setCurTeam(1)}
-                className={`px-6 py-2 rounded-lg font-bold ${
-                  curTeam === 1
-                    ? "bg-red-600 text-white"
-                    : "bg-slate-600 text-slate-300 hover:bg-slate-500"
-                }`}
-              >
-                {teamNames.t1 || "קבוצה 1"}
-              </button>
-              <button
-                onClick={() => setCurTeam(2)}
-                className={`px-6 py-2 rounded-lg font-bold ${
-                  curTeam === 2
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-600 text-slate-300 hover:bg-slate-500"
-                }`}
-              >
-                {teamNames.t2 || "קבוצה 2"}
-              </button>
-            </div>
-            <p className="text-center text-yellow-200/80 text-sm">
-              שחקן בפנים מול פנים (הראשון בסיבוב יהיה הבא בתור)
-            </p>
-            <div className="flex gap-2 justify-center flex-wrap">
-              {Array.from(
-                {
-                  length: Math.min(
-                    5,
-                    Math.max(2, teamPlayerCounts[curTeam === 1 ? "t1" : "t2"]),
-                  ),
-                },
-                (_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setFaceoffPlayerIndex(i)}
-                    className={`px-3 py-2 rounded-lg font-bold text-sm ${
-                      faceoffPlayerIndex === i
-                        ? "bg-amber-500 text-slate-900"
-                        : "bg-slate-600 text-slate-300 hover:bg-slate-500"
-                    }`}
-                    title={
-                      teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[i] ||
-                      `שחקן ${i + 1}`
-                    }
-                  >
-                    {teamPlayerNames[curTeam === 1 ? "t1" : "t2"]?.[i] || i + 1}
-                  </button>
-                ),
-              )}
             </div>
           </div>
         )}

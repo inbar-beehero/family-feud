@@ -16,6 +16,7 @@ export function GameView() {
     curPlayer,
     faceoffWin,
     faceoffFirstBuzzer,
+    faceoffFirstAnswerIdx,
     faceoffPlayerIndex,
     questionRevealed,
     feedback,
@@ -194,7 +195,9 @@ export function GameView() {
                 </div>
               ) : phase === "faceoff" && !faceoffFirstBuzzer ? (
                 <h3 className="text-xl font-bold text-yellow-900">
-                  פנים מול פנים – המתן לבחירת המנחה
+                  {faceoffFirstAnswerIdx !== null
+                    ? "פנים מול פנים – המתן לתשובה השנייה"
+                    : "פנים מול פנים – המתן לבחירת המנחה"}
                 </h3>
               ) : phase === "faceoff" && faceoffFirstBuzzer && !faceoffWin ? (
                 <h3 className="text-xl font-bold text-purple-900">
@@ -206,11 +209,14 @@ export function GameView() {
                 </h3>
               ) : phase === "choose" ? (
                 <h3 className="text-xl font-bold text-orange-900">
-                  {teamNames[faceoffWin === 1 ? "t1" : "t2"]} ניצחה בפנים מול
-                  פנים!
+                  {faceoffWin === null
+                    ? "המנחה בוחר איזו קבוצה נתנה את התשובה הנכונה"
+                    : `${teamNames[faceoffWin === 1 ? "t1" : "t2"]} ניצחה בפנים מול פנים!`}
                   <br />
                   <span className="text-lg text-orange-700 font-normal">
-                    המנחה יבחר – לשחק או להעביר
+                    {faceoffWin === null
+                      ? "ולאחר מכן לשחק או להעביר"
+                      : "המנחה יבחר – לשחק או להעביר"}
                   </span>
                 </h3>
               ) : phase === "play" || phase === "steal" ? (
@@ -271,7 +277,7 @@ export function GameView() {
               </div>
               {ctrl && phase !== "roundEnd" && (
                 <div className="text-xs text-blue-700 mt-1">
-                  קבוצה {ctrl} שולטת
+                  {teamNames[ctrl === 1 ? "t1" : "t2"]} שולטת
                 </div>
               )}
             </div>
