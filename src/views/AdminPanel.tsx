@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, ChevronDown, ChevronRight } from "lucide-react";
+import { X, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { useGame } from "@/context/GameContext";
 import { Toast } from "@/components/Toast";
 import type { Question, FastMoneyQuestion } from "@/types";
@@ -19,8 +19,12 @@ export function AdminPanel() {
     show,
     toast,
     storageBinId,
+    storageConnected,
     persistToStorage,
+    mergeCodedQuestionsToBin,
   } = useGame();
+
+  const [mergeLoading, setMergeLoading] = useState(false);
 
   const [editQ, setEditQ] = useState("");
   const [editAs, setEditAs] = useState<AnswerRow[]>([{ text: "", points: "" }]);
@@ -271,12 +275,41 @@ export function AdminPanel() {
               </p>
             )}
           </div>
-          <button
-            onClick={() => setView("start")}
-            className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700"
-          >
-            חזרה
-          </button>
+          <div className="flex gap-3 items-center">
+            {storageConnected && (
+              <button
+                onClick={async () => {
+                  setMergeLoading(true);
+                  const result = await mergeCodedQuestionsToBin();
+                  setMergeLoading(false);
+                  if (result) {
+                    if (result.addedRegular > 0 || result.addedFm > 0) {
+                      show(
+                        `נוספו ${result.addedRegular} שאלות רגילות ו-${result.addedFm} שאלות פאסט מאני`,
+                        "ok",
+                      );
+                    } else {
+                      show("כל השאלות מהקוד כבר קיימות בבאן", "info");
+                    }
+                  }
+                }}
+                disabled={mergeLoading}
+                className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw
+                  size={18}
+                  className={mergeLoading ? "animate-spin" : ""}
+                />
+                השווה לקוד והוסף חסרים
+              </button>
+            )}
+            <button
+              onClick={() => setView("start")}
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700"
+            >
+              חזרה
+            </button>
+          </div>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="sticky top-0 z-10 bg-gray-100 pb-4">

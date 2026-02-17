@@ -31,6 +31,10 @@ interface GameContextValue {
     questions: Question[],
     fmQuestions: FastMoneyQuestion[],
   ) => Promise<void>;
+  mergeCodedQuestionsToBin: () => Promise<{
+    addedRegular: number;
+    addedFm: number;
+  } | null>;
   usedQuestionHistory: number[];
   questions: Question[];
   setQuestions: (q: Question[] | ((p: Question[]) => Question[])) => void;
@@ -599,6 +603,52 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [storageApiKey, storageBinId, usedQuestionHistory, show],
   );
 
+  const mergeCodedQuestionsToBin = useCallback(async () => {
+    if (!storageApiKey || !storageBinId) return null;
+    try {
+      const bin = await readBin(storageApiKey, storageBinId);
+      const binQTexts = new Set(
+        (bin.questions || []).map((q) => q.question.trim()),
+      );
+      const binFmTexts = new Set(
+        (bin.fmQuestions || []).map((q) => q.question.trim()),
+      );
+      const toAddRegular = defaultQuestions.filter(
+        (q) => !binQTexts.has(q.question.trim()),
+      );
+      const toAddFm = defaultFastMoney.filter(
+        (q) => !binFmTexts.has(q.question.trim()),
+      );
+      const maxQId = Math.max(0, ...(bin.questions || []).map((q) => q.id));
+      const maxFmId = Math.max(0, ...(bin.fmQuestions || []).map((q) => q.id));
+      const addWithNewIds = (
+        arr: typeof toAddRegular,
+        start: number,
+      ): Question[] => arr.map((q, i) => ({ ...q, id: start + i + 1 }));
+      const newRegular = addWithNewIds(toAddRegular, maxQId);
+      const newFm = addWithNewIds(
+        toAddFm as FastMoneyQuestion[],
+        maxFmId,
+      ) as FastMoneyQuestion[];
+      const mergedQ = [...(bin.questions || []), ...newRegular];
+      const mergedFm = [...(bin.fmQuestions || []), ...newFm];
+      await updateBin(storageApiKey, storageBinId, {
+        questions: mergedQ,
+        fmQuestions: mergedFm,
+        usedQuestionHistory: bin.usedQuestionHistory ?? usedQuestionHistory,
+      });
+      setQuestions(mergedQ);
+      setFmQuestions(mergedFm);
+      return {
+        addedRegular: toAddRegular.length,
+        addedFm: toAddFm.length,
+      };
+    } catch (e) {
+      show(e instanceof Error ? e.message : "Merge failed", "err");
+      return null;
+    }
+  }, [storageApiKey, storageBinId, usedQuestionHistory, show]);
+
   const persistBinWithHistory = useCallback(
     async (q: Question[], fm: FastMoneyQuestion[], history: number[]) => {
       if (!storageApiKey || !storageBinId) return;
@@ -1143,6 +1193,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     connectToStorage,
     disconnectStorage,
     persistToStorage,
+    mergeCodedQuestionsToBin,
     usedQuestionHistory,
     questions,
     setQuestions: setQuestionsWrapper,
