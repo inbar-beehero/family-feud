@@ -19,9 +19,6 @@ export function HostView() {
     setFaceoffWin,
     questionRevealed,
     revealQuestion,
-    setCurTeam,
-    setFaceoffFirstBuzzer,
-    setFaceoffPlayerIndex,
     hostSelectAnswer,
     handlePlayOrPass,
     setView,
@@ -32,6 +29,14 @@ export function HostView() {
     setFmTimeLimit,
     fmPhase,
     fmPlayer,
+    fmWinningTeam,
+    fmPlayer1Idx,
+    fmPlayer2Idx,
+    fmPlayer1Name,
+    fmPlayer2Name,
+    hostSetFmPlayer1,
+    hostSetFmPlayer2,
+    hostStartFmWithPlayers,
     fmRoundQuestions,
     fmQIdx,
     fmAnswers,
@@ -76,14 +81,103 @@ export function HostView() {
               חזרה למשחק
             </button>
           </div>
-          {fmPhase === "reveal" ? (
+          {fmPhase === "select_players" ? (
+            <div className="space-y-6">
+              <h3 className="text-xl font-bold text-amber-200 mb-4">
+                בחר 2 שחקנים מ
+                {teamNames[fmWinningTeam === 1 ? "t1" : "t2"] ||
+                  (fmWinningTeam === 1 ? "קבוצה 1" : "קבוצה 2")}{" "}
+                שישחקו פאסט מאני
+              </h3>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <div className="text-amber-300 font-semibold mb-2">
+                    שחקן 1
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from(
+                      {
+                        length:
+                          teamPlayerCounts[fmWinningTeam === 1 ? "t1" : "t2"],
+                      },
+                      (_, i) => {
+                        const names =
+                          teamPlayerNames[fmWinningTeam === 1 ? "t1" : "t2"] ||
+                          [];
+                        const name = names[i] || `שחקן ${i + 1}`;
+                        const selected = fmPlayer1Idx === i;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() =>
+                              hostSetFmPlayer1(fmPlayer1Idx === i ? null : i)
+                            }
+                            className={`px-4 py-2 rounded-lg font-bold ${
+                              selected
+                                ? "bg-amber-500 text-slate-900"
+                                : "bg-slate-600 text-white hover:bg-slate-500"
+                            }`}
+                          >
+                            {name}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-amber-300 font-semibold mb-2">
+                    שחקן 2
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from(
+                      {
+                        length:
+                          teamPlayerCounts[fmWinningTeam === 1 ? "t1" : "t2"],
+                      },
+                      (_, i) => {
+                        const names =
+                          teamPlayerNames[fmWinningTeam === 1 ? "t1" : "t2"] ||
+                          [];
+                        const name = names[i] || `שחקן ${i + 1}`;
+                        const selected = fmPlayer2Idx === i;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() =>
+                              hostSetFmPlayer2(fmPlayer2Idx === i ? null : i)
+                            }
+                            className={`px-4 py-2 rounded-lg font-bold ${
+                              selected
+                                ? "bg-amber-500 text-slate-900"
+                                : "bg-slate-600 text-white hover:bg-slate-500"
+                            }`}
+                          >
+                            {name}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={hostStartFmWithPlayers}
+                disabled={
+                  fmPlayer1Idx === null ||
+                  fmPlayer2Idx === null ||
+                  fmPlayer1Idx === fmPlayer2Idx
+                }
+                className="w-full bg-amber-500 text-slate-900 py-4 rounded-lg text-xl font-bold hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                התחל פאסט מאני
+              </button>
+            </div>
+          ) : fmPhase === "reveal" ? (
             <div className="space-y-4">
               <h3 className="text-xl font-bold text-amber-200 mb-4">
-                בחר התאמה -{" "}
-                {teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"} (המשחק
-                מציג שאלה ותשובת{" "}
-                {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}, מחכה
-                להתאמה)
+                בחר התאמה - {fmPlayer2Name} (המשחק מציג שאלה ותשובת{" "}
+                {fmPlayer1Name}, מחכה להתאמה)
               </h3>
               <div className="space-y-4">
                 {[0, 1, 2, 3, 4].map((i) => {
@@ -109,9 +203,7 @@ export function HostView() {
                         {q.question}
                       </div>
                       <div className="text-amber-300 mb-3">
-                        תשובת{" "}
-                        {teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"}:{" "}
-                        {ans || "—"}
+                        תשובת {fmPlayer2Name}: {ans || "—"}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {q.answers.map((a, j) => (
@@ -167,7 +259,7 @@ export function HostView() {
           ) : fmPhase === "player1_result" ? (
             <div className="bg-slate-700/50 rounded-lg p-6 text-center">
               <h3 className="text-xl font-bold text-amber-200 mb-4">
-                סיכום {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}
+                סיכום {fmPlayer1Name}
               </h3>
               <div className="text-5xl font-bold text-blue-400 mb-6">
                 {fmPoints.p1} נקודות
@@ -176,14 +268,13 @@ export function HostView() {
                 onClick={hostFmAdvanceToPlayer2}
                 className="bg-amber-500 text-slate-900 px-8 py-3 rounded-lg text-lg font-bold hover:bg-amber-400"
               >
-                המשך ל{teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"}
+                המשך ל{fmPlayer2Name}
               </button>
             </div>
           ) : fmPhase === "player1_match" ? (
             <div className="space-y-4">
               <h3 className="text-xl font-bold text-amber-200 mb-4">
-                בחר התאמה לכל תשובה -{" "}
-                {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}
+                בחר התאמה לכל תשובה - {fmPlayer1Name}
               </h3>
               {[0, 1, 2, 3, 4].map((i) => {
                 const key = `p1_q${i}`;
@@ -204,9 +295,7 @@ export function HostView() {
                       {q.question}
                     </div>
                     <div className="text-amber-300 mb-3">
-                      תשובת{" "}
-                      {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}:{" "}
-                      {ans || "—"}
+                      תשובת {fmPlayer1Name}: {ans || "—"}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {q.answers.map((a, j) => (
@@ -246,16 +335,13 @@ export function HostView() {
           ) : (
             <div className="bg-slate-700/50 rounded-lg p-6">
               <h3 className="text-xl font-bold text-amber-200 mb-4">
-                {fmPlayer === 1
-                  ? teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"
-                  : teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"}{" "}
-                • שאלה {fmQIdx + 1} מתוך 5
+                {fmPlayer === 1 ? fmPlayer1Name : fmPlayer2Name} • שאלה{" "}
+                {fmQIdx + 1} מתוך 5
               </h3>
               {fmPlayer === 2 && (
                 <div className="mb-4 p-3 bg-slate-800 rounded-lg">
                   <div className="text-sm text-slate-400 mb-2">
-                    תשובות{" "}
-                    {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}:
+                    תשובות {fmPlayer1Name}:
                   </div>
                   <div className="space-y-1">
                     {[0, 1, 2, 3, 4].map((i) => (

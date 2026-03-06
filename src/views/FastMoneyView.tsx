@@ -12,9 +12,29 @@ export function FastMoneyView() {
     fmPoints,
     fmSameAnswerError,
     fmTimeRemaining,
+    fmPlayer1Name,
+    fmPlayer2Name,
     teamNames,
-    teamPlayerNames,
   } = useGame();
+
+  if (fmPhase === "select_players") {
+    return (
+      <div
+        className="min-h-screen bg-gradient-to-br from-yellow-900 via-yellow-700 to-yellow-900 p-6 flex flex-col items-center justify-center"
+        dir="rtl"
+      >
+        <div className="max-w-3xl mx-auto text-center">
+          <h1
+            className="text-4xl font-bold text-yellow-300 mb-6"
+            style={{ textShadow: "4px 4px 0 rgba(0,0,0,0.5)" }}
+          >
+            פאסט מאני
+          </h1>
+          <p className="text-2xl text-yellow-200">המנחה בוחר 2 שחקנים...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (fmPhase === "reveal") {
     return <FastMoneyReveal />;
@@ -31,7 +51,7 @@ export function FastMoneyView() {
             className="text-4xl font-bold text-yellow-300 mb-6"
             style={{ textShadow: "4px 4px 0 rgba(0,0,0,0.5)" }}
           >
-            פאסט מאני - {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}
+            פאסט מאני - {fmPlayer1Name || teamNames.t1 || "שחקן 1"}
           </h1>
           <div className="bg-white rounded-lg shadow-2xl p-12">
             <div className="text-7xl font-bold text-blue-600">
@@ -55,7 +75,7 @@ export function FastMoneyView() {
             className="text-4xl font-bold text-yellow-300 mb-6"
             style={{ textShadow: "4px 4px 0 rgba(0,0,0,0.5)" }}
           >
-            פאסט מאני - {teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"}
+            פאסט מאני - {fmPlayer1Name || teamNames.t1 || "שחקן 1"}
           </h1>
           <div className="bg-white rounded-lg shadow-2xl p-6">
             <h2 className="text-2xl font-bold text-blue-900 text-right mb-4">
@@ -141,8 +161,8 @@ export function FastMoneyView() {
         >
           פאסט מאני -{" "}
           {currentPlayer === 1
-            ? teamPlayerNames.t1?.[0] || teamNames.t1 || "קבוצה 1"
-            : teamPlayerNames.t2?.[0] || teamNames.t2 || "קבוצה 2"}
+            ? fmPlayer1Name || teamNames.t1 || "שחקן 1"
+            : fmPlayer2Name || teamNames.t2 || "שחקן 2"}
         </h1>
         <div className="bg-white rounded-lg shadow-2xl p-6 mb-6">
           {fmRoundQuestions[fmQIdx] && (
