@@ -16,8 +16,6 @@ export function HostView() {
     faceoffFirstBuzzer,
     faceoffPlayerIndex,
     faceoffFirstAnswerIdx,
-    faceoffAwaitingWrongTeam,
-    hostFaceoffWrongTeam,
     setFaceoffWin,
     questionRevealed,
     revealQuestion,
@@ -453,10 +451,7 @@ export function HostView() {
   }
 
   const canSelect =
-    ((phase === "faceoff" && !faceoffAwaitingWrongTeam) ||
-      phase === "play" ||
-      phase === "steal") &&
-    !feedback;
+    (phase === "faceoff" || phase === "play" || phase === "steal") && !feedback;
 
   return (
     <div
@@ -590,28 +585,6 @@ export function HostView() {
                 </div>
               </>
             )}
-          </div>
-        )}
-
-        {phase === "faceoff" && faceoffAwaitingWrongTeam && (
-          <div className="bg-yellow-500/20 border-2 border-yellow-400 rounded-lg p-6 mb-4">
-            <h3 className="text-xl font-bold text-center text-yellow-200 mb-4">
-              איזו קבוצה נתנה תשובה שלא על הלוח?
-            </h3>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => hostFaceoffWrongTeam(1)}
-                className="bg-red-600 text-white px-10 py-6 rounded-lg text-xl font-bold hover:bg-red-500 flex items-center gap-2 transition"
-              >
-                {teamNames.t1 || "קבוצה 1"}
-              </button>
-              <button
-                onClick={() => hostFaceoffWrongTeam(2)}
-                className="bg-blue-600 text-white px-10 py-6 rounded-lg text-xl font-bold hover:bg-blue-500 flex items-center gap-2 transition"
-              >
-                {teamNames.t2 || "קבוצה 2"}
-              </button>
-            </div>
           </div>
         )}
 

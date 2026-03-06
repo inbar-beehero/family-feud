@@ -890,12 +890,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
             if (faceoffFirstAnswerIdx !== null) {
               setPhase("choose");
               setFaceoffFirstAnswerIdx(null);
-            } else if (faceoffFirstBuzzer === null) {
-              setFaceoffAwaitingWrongTeam(true);
             } else {
-              setFaceoffBothMissed(true);
-              setFaceoffWin(faceoffFirstBuzzer);
-              setPhase("choose");
+              setFaceoffFirstAnswerIdx(-1);
             }
           } else if (phase === "play") addStrike(strikes);
           else if (phase === "steal") awardPoints(ctrl!, roundScore);
