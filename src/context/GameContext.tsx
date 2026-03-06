@@ -87,12 +87,21 @@ interface GameContextValue {
   questionRevealed: boolean;
   revealQuestion: () => void;
   fmPhase:
+    | "select_players"
     | "player1"
     | "player1_match"
     | "player1_result"
     | "player2"
     | "reveal";
   fmPlayer: number;
+  fmWinningTeam: 1 | 2;
+  fmPlayer1Idx: number | null;
+  fmPlayer2Idx: number | null;
+  fmPlayer1Name: string;
+  fmPlayer2Name: string;
+  hostSetFmPlayer1: (idx: number | null) => void;
+  hostSetFmPlayer2: (idx: number | null) => void;
+  hostStartFmWithPlayers: () => void;
   fmAnswers: Record<string, string>;
   fmMatchSelections: Record<string, number | null>;
   fmPoints: { p1: number; p2: number };
@@ -229,9 +238,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     useState(false);
   const [questionRevealed, setQuestionRevealed] = useState(false);
   const [fmPhase, setFmPhase] = useState<
-    "player1" | "player1_match" | "player1_result" | "player2" | "reveal"
+    | "select_players"
+    | "player1"
+    | "player1_match"
+    | "player1_result"
+    | "player2"
+    | "reveal"
   >("player1");
   const [fmPlayer, setFmPlayer] = useState(1);
+  const [fmWinningTeam, setFmWinningTeam] = useState<1 | 2>(1);
+  const [fmPlayer1Idx, setFmPlayer1Idx] = useState<number | null>(null);
+  const [fmPlayer2Idx, setFmPlayer2Idx] = useState<number | null>(null);
   const [fmAnswers, setFmAnswers] = useState<Record<string, string>>({});
   const [fmMatchSelections, setFmMatchSelections] = useState<
     Record<string, number | null>
@@ -305,6 +322,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
             data.fmPhase === "player2_match" ? "reveal" : data.fmPhase,
           );
         if (typeof data.fmPlayer === "number") setFmPlayer(data.fmPlayer);
+        if (data.fmWinningTeam === 1 || data.fmWinningTeam === 2)
+          setFmWinningTeam(data.fmWinningTeam);
+        if (typeof data.fmPlayer1Idx === "number" || data.fmPlayer1Idx === null)
+          setFmPlayer1Idx(data.fmPlayer1Idx);
+        if (typeof data.fmPlayer2Idx === "number" || data.fmPlayer2Idx === null)
+          setFmPlayer2Idx(data.fmPlayer2Idx);
         if (typeof data.fmQIdx === "number") setFmQIdx(data.fmQIdx);
         if (data.fmAnswers && typeof data.fmAnswers === "object")
           setFmAnswers(data.fmAnswers);
@@ -391,6 +414,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
             data.fmPhase === "player2_match" ? "reveal" : data.fmPhase,
           );
         if (typeof data.fmPlayer === "number") setFmPlayer(data.fmPlayer);
+        if (data.fmWinningTeam === 1 || data.fmWinningTeam === 2)
+          setFmWinningTeam(data.fmWinningTeam);
+        if (typeof data.fmPlayer1Idx === "number" || data.fmPlayer1Idx === null)
+          setFmPlayer1Idx(data.fmPlayer1Idx);
+        if (typeof data.fmPlayer2Idx === "number" || data.fmPlayer2Idx === null)
+          setFmPlayer2Idx(data.fmPlayer2Idx);
         if (typeof data.fmQIdx === "number") setFmQIdx(data.fmQIdx);
         if (data.fmAnswers && typeof data.fmAnswers === "object")
           setFmAnswers(data.fmAnswers);
@@ -463,6 +492,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       fmRoundQuestions,
       fmPhase,
       fmPlayer,
+      fmWinningTeam,
+      fmPlayer1Idx,
+      fmPlayer2Idx,
       fmQIdx,
       fmAnswers,
       fmMatchSelections,
@@ -503,6 +535,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     fmRoundQuestions,
     fmPhase,
     fmPlayer,
+    fmWinningTeam,
+    fmPlayer1Idx,
+    fmPlayer2Idx,
     fmQIdx,
     fmAnswers,
     fmMatchSelections,
@@ -1165,7 +1200,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setFmRoundQuestions(pickedFm);
       addToUsedHistory(pickedFm.map((q) => q.id));
       setFmTimeRemaining(fmTimeLimit);
-      setFmPhase("player1");
+      setFmWinningTeam(scores.t1 >= scores.t2 ? 1 : 2);
+      setFmPlayer1Idx(null);
+      setFmPlayer2Idx(null);
+      setFmPhase("select_players");
       setFmPlayer(1);
       setFmAnswers({});
       setFmMatchSelections({});
@@ -1186,6 +1224,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     fmQuestions,
     fmQuestions.length,
     fmTimeLimit,
+    scores,
     faceoffPlayerIndex,
     beginRound,
     show,
@@ -1204,7 +1243,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setFmRoundQuestions(pickedFm);
     addToUsedHistory(pickedFm.map((q) => q.id));
     setFmTimeRemaining(fmTimeLimit);
-    setFmPhase("player1");
+    setFmWinningTeam(scores.t1 >= scores.t2 ? 1 : 2);
+    setFmPlayer1Idx(null);
+    setFmPlayer2Idx(null);
+    setFmPhase("select_players");
     setFmPlayer(1);
     setFmAnswers({});
     setFmMatchSelections({});
@@ -1217,11 +1259,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
     fmQuestions,
     fmQuestions.length,
     fmTimeLimit,
+    scores,
     show,
     usedQuestionHistory,
     addToUsedHistory,
     clearHistoryIfAllUsed,
   ]);
+
+  const hostSetFmPlayer1 = useCallback((idx: number | null) => {
+    setFmPlayer1Idx(idx);
+  }, []);
+
+  const hostSetFmPlayer2 = useCallback((idx: number | null) => {
+    setFmPlayer2Idx(idx);
+  }, []);
+
+  const hostStartFmWithPlayers = useCallback(() => {
+    if (
+      fmPlayer1Idx !== null &&
+      fmPlayer2Idx !== null &&
+      fmPlayer1Idx !== fmPlayer2Idx
+    ) {
+      setFmPhase("player1");
+      setFmTimeRemaining(fmTimeLimit);
+    }
+  }, [fmPlayer1Idx, fmPlayer2Idx, fmTimeLimit]);
 
   const setQuestionsWrapper = useCallback(
     (q: Question[] | ((p: Question[]) => Question[])) => {
@@ -1295,6 +1357,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
     revealQuestion,
     fmPhase,
     fmPlayer,
+    fmWinningTeam,
+    fmPlayer1Idx,
+    fmPlayer2Idx,
+    fmPlayer1Name:
+      fmPlayer1Idx !== null
+        ? teamPlayerNames[fmWinningTeam === 1 ? "t1" : "t2"]?.[fmPlayer1Idx] ||
+          `שחקן ${fmPlayer1Idx + 1}`
+        : "",
+    fmPlayer2Name:
+      fmPlayer2Idx !== null
+        ? teamPlayerNames[fmWinningTeam === 1 ? "t1" : "t2"]?.[fmPlayer2Idx] ||
+          `שחקן ${fmPlayer2Idx + 1}`
+        : "",
+    hostSetFmPlayer1,
+    hostSetFmPlayer2,
+    hostStartFmWithPlayers,
     fmAnswers,
     fmMatchSelections,
     fmPoints,
