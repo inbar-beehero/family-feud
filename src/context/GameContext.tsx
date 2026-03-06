@@ -895,21 +895,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             } else {
               setFaceoffBothMissed(true);
               setFaceoffWin(faceoffFirstBuzzer);
-              setCtrl(faceoffFirstBuzzer);
-              setCurTeam(faceoffFirstBuzzer);
-              setCurPlayer(
-                (faceoffPlayerIndex + 1) %
-                  Math.max(
-                    2,
-                    Math.min(
-                      5,
-                      faceoffFirstBuzzer === 1
-                        ? teamPlayerCounts.t1
-                        : teamPlayerCounts.t2,
-                    ),
-                  ),
-              );
-              setPhase("play");
+              setPhase("choose");
             }
           } else if (phase === "play") addStrike(strikes);
           else if (phase === "steal") awardPoints(ctrl!, roundScore);
